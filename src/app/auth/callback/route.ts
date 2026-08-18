@@ -31,7 +31,14 @@ export async function GET(request: Request) {
       }
     )
     
-    await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) {
+      console.error("Auth Callback Error:", error.message)
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, request.url))
+    }
+  } else {
+    // If there is no code, it might be an invalid link or PKCE failure
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Invalid or expired magic link.")}`, request.url))
   }
 
   // URL to redirect to after sign in process completes
