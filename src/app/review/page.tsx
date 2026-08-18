@@ -28,7 +28,8 @@ export default function ManagerReviewForm() {
   
   const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
   
-  const [employeeData, setEmployeeData] = useState<Record<string, unknown> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [employeeData, setEmployeeData] = useState<any>(null);
 
   useEffect(() => {
     // Load the pending evaluation from localStorage (simulating DB fetch)

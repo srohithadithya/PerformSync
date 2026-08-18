@@ -64,7 +64,8 @@ export default function HRDashboard() {
     setEmployees(dynamicList);
   }, []);
 
-  const handleGeneratePDF = async (emp: Record<string, unknown>) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleGeneratePDF = async (emp: any) => {
     if (!emp.data) {
       alert("This is a mock completed record. Submit a real evaluation to generate its PDF.");
       return;
