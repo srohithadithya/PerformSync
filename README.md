@@ -39,15 +39,23 @@ A fully digitized, multi-step form covering all mandatory performance domains:
 A centralized command center secured via Next.js Middleware.
 - **Role-Based Access:** Protected routes enforce authentication via Supabase.
 - **Analytics Overview:** High-level metrics on total employees, pending reviews, and average performance.
-- **Submission Grid:** Real-time data table tracking draft, pending, and completed evaluations.
+- **Submission Grid:** Real-time, dynamically filtered data table tracking draft, pending, and completed evaluations by department.
 
 ### 3. Manager Review & AI Assistance (`/review`)
 Fulfills **Section 6 (Manager Feedback and Ratings)**.
 - **✨ AI Summarization:** One-click AI integration utilizing NVIDIA NIM (Llama 3.1). Automatically digests the employee's extensive self-assessment and generates a concise, 3-sentence executive summary highlighting top achievements and development areas.
+- **✨ AI Polish:** AI-powered "Polish" features built into the employee form to enhance tone and professionalism before submission.
 - **Official Ratings:** Interfaces for managers to append official Core Skill ratings, overall performance scores (1-5), and development recommendations.
 
-### 4. Automated Document Generation (`/api/generate-pdf`)
-- Bypasses manual data entry. Once a manager finalizes a review, the application utilizes `pdf-lib` to map the JSON payload to exact coordinates, generating a finalized, downloadable `Evaluation_Report.pdf` instantly.
+### 4. Digital Signatures & Authorizations (Sections 7 & 8)
+- **Zero-Dependency Drawing Pad:** Both the Employee and Manager forms feature an embedded HTML5 `<SignaturePad />` component.
+- **Type or Draw Toggle:** Users can seamlessly toggle between typing their name or utilizing a physical trackpad/touchscreen signature drawing canvas (rendered in a deep navy-blue fountain pen aesthetic).
+- **Compliance Checkboxes:** Enforces mandatory "Accepted company norms and policies" checkboxes before submission is allowed.
+
+### 5. Automated Document Generation (`/api/generate-pdf`)
+- Bypasses manual data entry. Once a manager finalizes a review, the application utilizes `pdf-lib` to map the JSON payload to exact coordinates.
+- **Multi-Page Layout Engine:** Automatically handles text-wrapping and dynamically splits content across multiple pages to ensure no text cutoff.
+- **Image Embedding:** Extracts the base64 PNG data from the `SignaturePad` and natively embeds the drawn signatures directly onto the finalized PDF document.
 
 ---
 
@@ -100,14 +108,15 @@ The `src/proxy.ts` (Next.js Middleware) intercepts all traffic to `/dashboard`, 
 
 ## ✅ Audit Requirements Met
 
-This application has been strictly audited against the original business requirements:
+This application has been strictly audited against the original business requirements and PDF mapping:
 - [x] Must be a web-based responsive sheet replacing the static PDF.
-- [x] Must handle multiple users/employees with access control.
+- [x] Must handle multiple users/employees with access control and a unified HR dashboard.
 - [x] Must contain Sections 1 through 5 for employees.
 - [x] Must contain Section 6 for Manager/HR overrides.
+- [x] Must contain Section 7/8 for Legal Declarations and dual Signatures (Trackpad/Draw enabled).
 - [x] Must utilize an AI engine (NVIDIA NIM) to polish/summarize text.
-- [x] Must be entirely built on Free & Open Source infrastructure.
-- [x] Final responses must map back to a downloadable PDF.
+- [x] Must be entirely built on Free & Open Source infrastructure (Supabase, Next.js).
+- [x] Final responses must map back to a downloadable multi-page PDF containing the embedded signatures.
 
 ---
 *Maintained by the HR Tech Engineering Team.*

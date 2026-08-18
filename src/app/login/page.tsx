@@ -20,7 +20,12 @@ export default function LoginPage() {
     try {
       // Normally: const { error } = await supabase.auth.signInWithPassword({ email, password });
       // Because we lack env variables right now, we'll simulate a mock bypass if they enter anything
-      // Remove this mock bypass once .env.local is configured!
+      // Remove this mock bypass once .env.local is configured with real keys!
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock.supabase")) {
+        alert("Running in Mock Mode: Bypassing auth.");
+        router.push("/dashboard");
+        return;
+      }
 
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;

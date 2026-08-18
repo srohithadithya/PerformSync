@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SignaturePad from "@/components/SignaturePad";
 
 export default function EmployeeEvaluationForm() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    employeeName: "", employeeId: "", department: "", designation: "", reviewPeriod: "", date: "", reportingManager: "", location: "",
+    employmentType: "", employeeName: "", employeeId: "", department: "", designation: "", reviewPeriod: "", date: "", reportingManager: "", location: "",
     kpis: [{ id: 1, kpi: "", target: "", achieved: "", status: "", comments: "" }],
     keyAchievements: "",
     coreSkills: { ownership: "", teamwork: "", adaptability: "", prioritization: "", communication: "" },
@@ -21,8 +22,14 @@ export default function EmployeeEvaluationForm() {
       challenges: "",
       areasForDevelopment: "",
       focusAreas: ""
-    }
+    },
+    employeeSignature: "",
+    employeeSignatureImage: null as string | null,
+    employeeSignatureDate: "",
+    acceptedNorms: false
   });
+  
+  const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -47,10 +54,67 @@ export default function EmployeeEvaluationForm() {
     setFormData({ ...formData, kpis: [...formData.kpis, { id: formData.kpis.length + 1, kpi: "", target: "", achieved: "", status: "", comments: "" }] });
   };
 
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationSuccess, setValidationSuccess] = useState<boolean | null>(null);
+
+  // Mock Employee Database for auto-fetching
+  const mockDirectory = [
+    { id: "EMP001", name: "Alice Smith", location: "New York, NY" },
+    { id: "EMP002", name: "Bob Jones", location: "London, UK" },
+    { id: "INT001", name: "Charlie Brown", location: "San Francisco, CA" }
+  ];
+
+  const validateAndFetch = () => {
+    if (!formData.employeeId || !formData.employeeName || !formData.employmentType) return;
+    
+    setIsValidating(true);
+    // Simulate network delay
+    setTimeout(() => {
+      const match = mockDirectory.find(emp => 
+        emp.id.toLowerCase() === formData.employeeId.toLowerCase() && 
+        emp.name.toLowerCase() === formData.employeeName.toLowerCase()
+      );
+
+      if (match) {
+        setFormData(prev => ({ ...prev, location: match.location }));
+        setValidationSuccess(true);
+      } else {
+        setValidationSuccess(false);
+      }
+      setIsValidating(false);
+    }, 600);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate API call to Supabase
+    if (!formData.acceptedNorms) {
+      alert("You must accept the company norms and policies to submit this evaluation.");
+      return;
+    }
+    // Save to localStorage so Manager Review can pick it up
+    localStorage.setItem("pending_evaluation", JSON.stringify(formData));
     router.push("/success?type=evaluation");
+  };
+
+  const [isPolishing, setIsPolishing] = useState(false);
+
+  const handleAIPolish = async () => {
+    if (!formData.keyAchievements) return;
+    setIsPolishing(true);
+    try {
+      const res = await fetch("/api/ai-polish", {
+        method: "POST",
+        body: JSON.stringify({ text: formData.keyAchievements }),
+      });
+      const data = await res.json();
+      if (data.polishedText) {
+        setFormData(prev => ({ ...prev, keyAchievements: data.polishedText }));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsPolishing(false);
+    }
   };
 
   return (
@@ -65,16 +129,42 @@ export default function EmployeeEvaluationForm() {
           
           {/* Header Section */}
           <section className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6 border-b pb-3">Employee Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div><label className="block text-sm font-medium text-gray-700">Employee Name</label><input required type="text" name="employeeName" value={formData.employeeName} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
-              <div><label className="block text-sm font-medium text-gray-700">Employee ID</label><input required type="text" name="employeeId" value={formData.employeeId} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
+            <div className="flex justify-between items-center mb-6 border-b pb-3">
+              <h2 className="text-xl font-semibold text-gray-800">Employee Details</h2>
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Employment Type</label>
+                <select required name="employmentType" value={formData.employmentType} onChange={(e) => { handleChange(e); setTimeout(validateAndFetch, 100); }} className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border bg-white">
+                  <option value="">Select Type...</option>
+                  <option value="Full-Time Employee">Full-Time Employee</option>
+                  <option value="Intern">Intern</option>
+                  <option value="Contractor">Contractor</option>
+                  <option value="Part-Time">Part-Time</option>
+                </select>
+              </div>
+            </div>
+            
+            {validationSuccess === false && (
+              <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                Warning: Employee ID and Name combination not found in HR directory.
+              </div>
+            )}
+            {validationSuccess === true && (
+              <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                Employee validated successfully. Location auto-filled!
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+              {isValidating && <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">Validating...</div>}
+              <div><label className="block text-sm font-medium text-gray-700">Employee Name</label><input required type="text" name="employeeName" value={formData.employeeName} onChange={handleChange} onBlur={validateAndFetch} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
+              <div><label className="block text-sm font-medium text-gray-700">Employee ID</label><input required type="text" name="employeeId" value={formData.employeeId} onChange={handleChange} onBlur={validateAndFetch} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Department</label><input required type="text" name="department" value={formData.department} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Designation</label><input required type="text" name="designation" value={formData.designation} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Review Period</label><input required type="text" name="reviewPeriod" value={formData.reviewPeriod} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Date</label><input required type="date" name="date" value={formData.date} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Reporting Manager</label><input required type="text" name="reportingManager" value={formData.reportingManager} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
-              <div><label className="block text-sm font-medium text-gray-700">Location</label><input required type="text" name="location" value={formData.location} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
+              <div><label className="block text-sm font-medium text-gray-700">Location <span className="text-xs text-green-600 font-normal ml-1">(Auto-fetched)</span></label><input required type="text" name="location" value={formData.location} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
             </div>
           </section>
 
@@ -125,9 +215,9 @@ export default function EmployeeEvaluationForm() {
             <div className="mt-10 border-t pt-8">
               <label className="block text-base font-semibold text-gray-800 mb-1">Key Achievements & Results</label>
               <p className="text-sm text-gray-500 mb-3">Highlight the 2-4 most significant outcomes. Use bullet points and action verbs (e.g. Led, Reduced, Built).</p>
-              <textarea name="keyAchievements" rows={5} value={formData.keyAchievements} onChange={handleChange} placeholder="• Reduced client onboarding time by 40%&#10;• Led the redesign of..." className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border sm:text-sm"></textarea>
-              <button type="button" className="mt-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-1.5 text-sm rounded-md shadow-sm flex items-center gap-2 hover:opacity-90 transition">
-                <span>✨</span> AI Polish Text
+              <textarea name="keyAchievements" rows={5} value={formData.keyAchievements} onChange={handleChange} placeholder="• Reduced client onboarding time by 40%&#10;• Led the redesign of..." className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border sm:text-sm disabled:opacity-50" disabled={isPolishing}></textarea>
+              <button type="button" onClick={handleAIPolish} disabled={isPolishing || !formData.keyAchievements} className="mt-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-1.5 text-sm rounded-md shadow-sm flex items-center gap-2 hover:opacity-90 transition disabled:opacity-50">
+                <span>✨</span> {isPolishing ? "Polishing..." : "AI Polish Text"}
               </button>
             </div>
           </section>
@@ -168,11 +258,11 @@ export default function EmployeeEvaluationForm() {
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
-                      <tr><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Technical Skill</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rating</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/2">Examples</th></tr>
+                      <tr><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Technical Skill</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rating (1-5)</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/2">Examples of Situations Where Demonstrated</th></tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {['Technical / Domain Expertise', 'Tools & Systems Proficiency', 'Problem Solving & Troubleshooting', 'Delivery Velocity'].map((skill) => (
-                        <tr key={skill}><td className="px-6 py-4 text-sm font-medium">{skill}</td><td className="px-6 py-4"><input type="number" min="1" max="5" className="w-20 border rounded p-2 text-sm text-center" /></td><td className="px-6 py-4"><input type="text" className="w-full border rounded p-2 text-sm" /></td></tr>
+                        <tr key={skill}><td className="px-6 py-4 text-sm font-medium">{skill}</td><td className="px-6 py-4"><input type="number" min="1" max="5" className="w-20 border rounded p-2 text-sm text-center" /></td><td className="px-6 py-4"><input type="text" className="w-full border rounded p-2 text-sm" placeholder="Provide specific scenario or evidence..." /></td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -184,11 +274,11 @@ export default function EmployeeEvaluationForm() {
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
-                      <tr><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">GTM Skill</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rating</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/2">Examples</th></tr>
+                      <tr><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">GTM Skill</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rating (1-5)</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/2">Examples of Situations Where Demonstrated</th></tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {['Market / Customer Understanding', 'Stakeholder & Partner Management', 'Execution of GTM Initiatives', 'Commercial Management'].map((skill) => (
-                        <tr key={skill}><td className="px-6 py-4 text-sm font-medium">{skill}</td><td className="px-6 py-4"><input type="number" min="1" max="5" className="w-20 border rounded p-2 text-sm text-center" /></td><td className="px-6 py-4"><input type="text" className="w-full border rounded p-2 text-sm" /></td></tr>
+                        <tr key={skill}><td className="px-6 py-4 text-sm font-medium">{skill}</td><td className="px-6 py-4"><input type="number" min="1" max="5" className="w-20 border rounded p-2 text-sm text-center" /></td><td className="px-6 py-4"><input type="text" className="w-full border rounded p-2 text-sm" placeholder="Provide specific scenario or evidence..." /></td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -200,11 +290,11 @@ export default function EmployeeEvaluationForm() {
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
-                      <tr><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cross-Functional Skill</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rating</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/2">Examples</th></tr>
+                      <tr><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cross-Functional Skill</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rating (1-5)</th><th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/2">Examples of Situations Where Demonstrated</th></tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {['Business / Domain Understanding', 'Process Improvement', 'Collaboration Across Teams', 'Knowledge Sharing', 'Adaptability to Org/Client'].map((skill) => (
-                        <tr key={skill}><td className="px-6 py-4 text-sm font-medium">{skill}</td><td className="px-6 py-4"><input type="number" min="1" max="5" className="w-20 border rounded p-2 text-sm text-center" /></td><td className="px-6 py-4"><input type="text" className="w-full border rounded p-2 text-sm" /></td></tr>
+                        <tr key={skill}><td className="px-6 py-4 text-sm font-medium">{skill}</td><td className="px-6 py-4"><input type="number" min="1" max="5" className="w-20 border rounded p-2 text-sm text-center" /></td><td className="px-6 py-4"><input type="text" className="w-full border rounded p-2 text-sm" placeholder="Provide specific scenario or evidence..." /></td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -258,9 +348,44 @@ export default function EmployeeEvaluationForm() {
             </div>
           </section>
 
+          {/* Section 6: Employee Declaration & Signatures */}
+          <section className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-800 mb-6 border-b pb-3">Section 6. Declarations & Signatures</h2>
+            <div className="space-y-6">
+              <div className="flex items-start">
+                <div className="flex items-center h-5">
+                  <input id="acceptedNorms" name="acceptedNorms" type="checkbox" required checked={formData.acceptedNorms} onChange={(e) => setFormData({...formData, acceptedNorms: e.target.checked})} className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded" />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="acceptedNorms" className="font-medium text-gray-700">I declare that the information provided is accurate and I accept the company norms and policies regarding this performance evaluation.</label>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Employee Digital Signature</label>
+                    <div className="flex bg-gray-100 rounded p-0.5">
+                      <button type="button" onClick={() => setSignatureMode("type")} className={`px-2 py-1 text-xs rounded shadow-sm ${signatureMode === "type" ? "bg-white text-gray-900 font-medium" : "text-gray-500 hover:text-gray-700"}`}>Type</button>
+                      <button type="button" onClick={() => setSignatureMode("draw")} className={`px-2 py-1 text-xs rounded shadow-sm ${signatureMode === "draw" ? "bg-white text-gray-900 font-medium" : "text-gray-500 hover:text-gray-700"}`}>Draw</button>
+                    </div>
+                  </div>
+                  {signatureMode === "type" ? (
+                    <input required type="text" name="employeeSignature" value={formData.employeeSignature} onChange={handleChange} className="w-full border rounded p-3 text-sm focus:border-indigo-500 focus:ring-indigo-500 font-serif italic bg-gray-50" placeholder="Type your full name as signature" />
+                  ) : (
+                    <SignaturePad onSignatureChange={(img) => setFormData({...formData, employeeSignatureImage: img})} />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Signed</label>
+                  <input required type="date" name="employeeSignatureDate" value={formData.employeeSignatureDate} onChange={handleChange} className="w-full border rounded p-3 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                </div>
+              </div>
+            </div>
+          </section>
+
           <div className="flex justify-end gap-4 pt-6 mt-6 border-t border-gray-200">
             <button type="button" className="px-6 py-2.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium shadow-sm transition-colors">Save as Draft</button>
-            <button type="submit" className="px-8 py-2.5 bg-indigo-600 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">Submit Final to Manager</button>
+            <button type="submit" disabled={!formData.acceptedNorms || (signatureMode === "type" ? !formData.employeeSignature : !formData.employeeSignatureImage)} className="px-8 py-2.5 bg-indigo-600 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">Submit Final to Manager</button>
           </div>
         </form>
       </div>

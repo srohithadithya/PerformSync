@@ -1,36 +1,152 @@
 import { NextResponse } from 'next/server';
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 export async function POST(request: Request) {
   try {
     const data = await request.json();
 
-    // Create a new PDFDocument
     const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     
-    // Add a blank page to the document
-    const page = pdfDoc.addPage([600, 800]);
-    const { width, height } = page.getSize();
-    
-    // Draw Header
-    page.drawText('Final Employee Evaluation Report', { x: 50, y: height - 50, size: 20 });
-    page.drawText(`Employee Name: ${data.employeeName || 'N/A'}`, { x: 50, y: height - 90, size: 12 });
-    page.drawText(`Department: ${data.department || 'N/A'}`, { x: 50, y: height - 110, size: 12 });
-    
-    // Draw Manager Rating
-    page.drawText('Manager Overall Rating:', { x: 50, y: height - 150, size: 14 });
-    page.drawText(`${data.overallRating || 'N/A'} / 5`, { x: 220, y: height - 150, size: 14, color: rgb(0, 0, 0.8) });
+    let page = pdfDoc.addPage([600, 800]);
+    let { width, height } = page.getSize();
+    let currentY = height - 50;
+    const margin = 50;
 
-    page.drawText('Manager Comments:', { x: 50, y: height - 190, size: 14 });
-    page.drawText(`${data.overallComments || 'No comments provided.'}`, { x: 50, y: height - 210, size: 12, maxWidth: 500 });
+    const addNewPage = () => {
+      page = pdfDoc.addPage([600, 800]);
+      currentY = height - 50;
+    };
 
-    // Serialize the PDFDocument to bytes (a Uint8Array)
+    const drawText = (text: string, size = 10, isBold = false, color = rgb(0,0,0)) => {
+      if (currentY < 50) addNewPage();
+      page.drawText(String(text || 'N/A'), {
+        x: margin,
+        y: currentY,
+        size,
+        font: isBold ? boldFont : font,
+        color
+      });
+      currentY -= (size + 6);
+    };
+
+    const drawWrappedText = (text: string, maxWidth = 500, size = 10) => {
+      const words = String(text || '').split(' ');
+      let line = '';
+      for (let i = 0; i < words.length; i++) {
+        const testLine = line + words[i] + ' ';
+        const textWidth = font.widthOfTextAtSize(testLine, size);
+        if (textWidth > maxWidth && i > 0) {
+          drawText(line, size);
+          line = words[i] + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      drawText(line, size);
+    };
+
+    // --- Header ---
+    drawText('OFFICIAL PERFORMANCE EVALUATION REPORT', 18, true, rgb(0, 0.2, 0.6));
+    currentY -= 10;
+    drawText(`Employee Name: ${data.employeeName || 'N/A'}`, 12, true);
+    drawText(`Employee ID: ${data.employeeId || 'N/A'}`, 12);
+    drawText(`Department: ${data.department || 'N/A'}`, 12);
+    drawText(`Designation: ${data.designation || 'N/A'}`, 12);
+    drawText(`Review Period: ${data.reviewPeriod || 'N/A'}`, 12);
+    drawText(`Date: ${data.date || 'N/A'}`, 12);
+    drawText(`Employment Type: ${data.employmentType || 'N/A'}`, 12);
+    
+    currentY -= 20;
+
+    // --- Employee Assessment Sections ---
+    drawText('PART 1: EMPLOYEE SELF-ASSESSMENT', 14, true, rgb(0.2, 0.2, 0.2));
+    currentY -= 10;
+
+    // Achievements
+    drawText('Key Achievements & Results:', 12, true);
+    drawWrappedText(data.keyAchievements || 'None provided.', 500, 10);
+    currentY -= 15;
+
+    // Self Reflection
+    drawText('Self-Reflection:', 12, true);
+    drawText('Challenges Encountered:', 10, true);
+    drawWrappedText(data.selfReflection?.challenges || 'N/A', 500, 10);
+    currentY -= 10;
+    
+    drawText('Areas for Development:', 10, true);
+    drawWrappedText(data.selfReflection?.areasForDevelopment || 'N/A', 500, 10);
+    currentY -= 20;
+
+    // --- Manager Review Sections ---
+    if (currentY < 200) addNewPage(); // Ensure manager review starts on a good page
+    drawText('PART 2: MANAGER REVIEW & FEEDBACK', 14, true, rgb(0.2, 0.2, 0.2));
+    currentY -= 10;
+    
+    const mgr = data.managerReview || {};
+    
+    drawText('Manager Overall Comments:', 12, true);
+    drawWrappedText(mgr.overallComments || 'No comments provided.', 500, 10);
+    currentY -= 10;
+    
+    drawText('Development Recommendations:', 12, true);
+    drawWrappedText(mgr.developmentRecommendations || 'No recommendations provided.', 500, 10);
+    currentY -= 10;
+
+    drawText(`OVERALL RATING: ${mgr.overallRating || 'N/A'} / 5`, 14, true, rgb(0, 0, 0.8));
+    currentY -= 30;
+
+    // --- Declarations & Signatures ---
+    if (currentY < 150) addNewPage(); // Ensure signatures don't get cut off
+    drawText('PART 3: DECLARATIONS & SIGNATURES', 14, true, rgb(0.2, 0.2, 0.2));
+    currentY -= 10;
+
+    drawWrappedText('The employee and manager have formally reviewed and accepted the company norms and policies regarding this performance evaluation.', 500, 10);
+    currentY -= 20;
+
+    drawText('Employee Signature:', 12, true);
+    if (data.employeeSignatureImage) {
+      try {
+        const imgStr = data.employeeSignatureImage.split(',')[1];
+        const imgBytes = Buffer.from(imgStr, 'base64');
+        const embeddedImg = await pdfDoc.embedPng(imgBytes);
+        const { width: w, height: h } = embeddedImg.scale(0.3);
+        page.drawImage(embeddedImg, { x: margin, y: currentY - h, width: w, height: h });
+        currentY -= (h + 10);
+      } catch (e) {
+        drawText('Error embedding image', 12, false, rgb(1,0,0));
+      }
+    } else {
+      drawText(data.employeeSignature || 'Not Signed', 12, false, rgb(0, 0.3, 0));
+    }
+    drawText(`Date: ${data.employeeSignatureDate || 'N/A'}`, 10);
+    
+    currentY -= 20;
+
+    drawText('Manager / HR Signature:', 12, true);
+    if (mgr.managerSignatureImage) {
+      try {
+        const imgStr = mgr.managerSignatureImage.split(',')[1];
+        const imgBytes = Buffer.from(imgStr, 'base64');
+        const embeddedImg = await pdfDoc.embedPng(imgBytes);
+        const { width: w, height: h } = embeddedImg.scale(0.3);
+        page.drawImage(embeddedImg, { x: margin, y: currentY - h, width: w, height: h });
+        currentY -= (h + 10);
+      } catch (e) {
+        drawText('Error embedding image', 12, false, rgb(1,0,0));
+      }
+    } else {
+      drawText(mgr.managerSignature || 'Not Signed', 12, false, rgb(0, 0.3, 0));
+    }
+    drawText(`Date: ${mgr.managerSignatureDate || 'N/A'}`, 10);
+
     const pdfBytes = await pdfDoc.save();
 
     return new NextResponse(pdfBytes, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="evaluation_report.pdf"',
+        'Content-Disposition': `attachment; filename="Evaluation_${data.employeeName || 'Employee'}.pdf"`,
       },
     });
   } catch (error) {

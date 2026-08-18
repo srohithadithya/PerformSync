@@ -1,20 +1,60 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function HRDashboard() {
-  const [employees] = useState([
-    { id: 1, name: "Alice Smith", department: "Engineering", designation: "Senior Dev", status: "Pending Manager Review", date: "2026-08-18" },
-    { id: 2, name: "Bob Jones", department: "Marketing", designation: "Content Lead", status: "Completed", date: "2026-08-15" },
-    { id: 3, name: "Charlie Brown", department: "Sales", designation: "AE", status: "Draft", date: "-" },
+  const [employees, setEmployees] = useState([
+    { id: 1, name: "Bob Jones", department: "Marketing", designation: "Content Lead", status: "Completed", date: "2026-08-15", data: null },
+    { id: 2, name: "Charlie Brown", department: "Sales", designation: "AE", status: "Draft", date: "-", data: null },
   ]);
 
+  const [managerDept, setManagerDept] = useState("All");
+
+  useEffect(() => {
+    // Dynamically load any evaluations submitted by the employee from localStorage
+    const pending = localStorage.getItem("pending_evaluation");
+    const completed = localStorage.getItem("completed_evaluation");
+    
+    let dynamicList = [...employees];
+    
+    if (completed) {
+      const parsed = JSON.parse(completed);
+      dynamicList.unshift({
+        id: 999,
+        name: parsed.employeeName,
+        department: parsed.department,
+        designation: parsed.designation,
+        status: "Completed",
+        date: new Date().toISOString().split('T')[0],
+        data: parsed
+      });
+    } else if (pending) {
+      const parsed = JSON.parse(pending);
+      dynamicList.unshift({
+        id: 998,
+        name: parsed.employeeName,
+        department: parsed.department,
+        designation: parsed.designation,
+        status: "Pending Manager Review",
+        date: new Date().toISOString().split('T')[0],
+        data: parsed
+      });
+    }
+    
+    setEmployees(dynamicList);
+  }, []);
+
   const handleGeneratePDF = async (emp: any) => {
+    if (!emp.data) {
+      alert("This is a mock completed record. Submit a real evaluation to generate its PDF.");
+      return;
+    }
     try {
       const res = await fetch("/api/generate-pdf", {
         method: "POST",
-        body: JSON.stringify({ employeeName: emp.name, department: emp.department, overallRating: 4, overallComments: "Great work!" }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emp.data),
       });
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -72,7 +112,13 @@ export default function HRDashboard() {
         <div className="bg-white shadow-sm border border-gray-200 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
             <h2 className="text-lg font-medium text-gray-900">Recent Submissions</h2>
-            <div className="relative">
+            <div className="flex gap-4">
+              <select value={managerDept} onChange={(e) => setManagerDept(e.target.value)} className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white">
+                <option value="All">All Departments (HR View)</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Sales">Sales</option>
+              </select>
               <input type="text" placeholder="Search employees..." className="block w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border" />
             </div>
           </div>
@@ -88,7 +134,7 @@ export default function HRDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {employees.map((emp) => (
+                {employees.filter(emp => managerDept === "All" || emp.department === managerDept).map((emp) => (
                   <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{emp.name}</div>

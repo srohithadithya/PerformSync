@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import SignaturePad from "@/components/SignaturePad";
 
 export default function ManagerReviewForm() {
   const router = useRouter();
@@ -19,8 +20,23 @@ export default function ManagerReviewForm() {
     },
     overallRating: "",
     overallComments: "",
-    developmentRecommendations: ""
+    developmentRecommendations: "",
+    managerSignature: "",
+    managerSignatureImage: null as string | null,
+    managerSignatureDate: ""
   });
+  
+  const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
+  
+  const [employeeData, setEmployeeData] = useState<any>(null);
+
+  useEffect(() => {
+    // Load the pending evaluation from localStorage (simulating DB fetch)
+    const stored = localStorage.getItem("pending_evaluation");
+    if (stored) {
+      setEmployeeData(JSON.parse(stored));
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -53,9 +69,51 @@ export default function ManagerReviewForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/dashboard");
+    if (signatureMode === "type" && !managerData.managerSignature) {
+      alert("Please provide a typed digital signature before generating the PDF.");
+      return;
+    }
+    if (signatureMode === "draw" && !managerData.managerSignatureImage) {
+      alert("Please draw your digital signature before generating the PDF.");
+      return;
+    }
+
+    try {
+      // Combine Employee data and Manager data for the PDF
+      const finalPayload = {
+        ...employeeData,
+        managerReview: managerData
+      };
+
+      const res = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalPayload),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Final_Evaluation_${employeeData?.employeeName || 'Employee'}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        // Cleanup and redirect
+        localStorage.setItem("completed_evaluation", JSON.stringify(finalPayload));
+        localStorage.removeItem("pending_evaluation");
+        router.push("/dashboard");
+      } else {
+        alert("Failed to generate PDF");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error generating PDF");
+    }
   };
 
   return (
@@ -65,7 +123,7 @@ export default function ManagerReviewForm() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Manager Review & Feedback</h1>
-              <p className="mt-2 text-gray-300">Reviewing: Alice Smith (Senior Dev)</p>
+              <p className="mt-2 text-gray-300">Reviewing: {employeeData?.employeeName || "Unknown Employee"} ({employeeData?.designation || "N/A"})</p>
             </div>
             <button type="button" onClick={generateAISummary} disabled={loadingSummary} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-md font-medium shadow flex items-center gap-2 transition disabled:opacity-50">
               <span>✨</span> {loadingSummary ? "Generating..." : "Generate AI Summary of Employee's Form"}
@@ -81,9 +139,14 @@ export default function ManagerReviewForm() {
         )}
 
         {/* View Employee Submission (Mocked Collapsed State) */}
-        <div className="px-8 py-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center cursor-pointer hover:bg-indigo-100 transition">
-          <span className="font-medium text-indigo-900">View Alice's Submitted Self-Assessment (Sections 1-5)</span>
-          <svg className="w-5 h-5 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+        <div className="px-8 py-4 bg-indigo-50 border-b border-indigo-100 flex flex-col cursor-pointer hover:bg-indigo-100 transition">
+          <div className="flex justify-between items-center">
+            <span className="font-medium text-indigo-900">View {employeeData?.employeeName || "Employee"}'s Submitted Self-Assessment (Sections 1-5)</span>
+            <svg className="w-5 h-5 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+          <div className="text-xs text-indigo-700 mt-2">
+            Status: {employeeData?.acceptedNorms ? "✅ Signed & Accepted Norms" : "❌ Pending Signature"}
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="px-8 py-10 space-y-12 bg-gray-50/50">
@@ -171,11 +234,36 @@ export default function ManagerReviewForm() {
             </div>
           </section>
 
+          {/* Manager Signature block */}
+          <section className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mt-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-6 border-b pb-3">Manager Digital Signature</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <div className="flex justify-between items-end mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Manager / HR Signature</label>
+                  <div className="flex bg-gray-100 rounded p-0.5">
+                    <button type="button" onClick={() => setSignatureMode("type")} className={`px-2 py-1 text-xs rounded shadow-sm ${signatureMode === "type" ? "bg-white text-gray-900 font-medium" : "text-gray-500 hover:text-gray-700"}`}>Type</button>
+                    <button type="button" onClick={() => setSignatureMode("draw")} className={`px-2 py-1 text-xs rounded shadow-sm ${signatureMode === "draw" ? "bg-white text-gray-900 font-medium" : "text-gray-500 hover:text-gray-700"}`}>Draw</button>
+                  </div>
+                </div>
+                {signatureMode === "type" ? (
+                  <input required type="text" name="managerSignature" value={managerData.managerSignature} onChange={handleChange} className="w-full border rounded p-3 text-sm focus:border-indigo-500 focus:ring-indigo-500 font-serif italic bg-gray-50" placeholder="Type your full name as signature" />
+                ) : (
+                  <SignaturePad onSignatureChange={(img) => setManagerData({...managerData, managerSignatureImage: img})} />
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date Signed</label>
+                <input required type="date" name="managerSignatureDate" value={managerData.managerSignatureDate} onChange={handleChange} className="w-full border rounded p-3 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              </div>
+            </div>
+          </section>
+
           <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-200">
-            <div className="text-sm text-gray-500 italic">Signatures will be captured digitally upon finalization.</div>
+            <div className="text-sm text-gray-500 italic">This will finalize the performance review and generate the signed PDF.</div>
             <div className="flex gap-4">
               <button type="button" className="px-6 py-2.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium shadow-sm transition-colors">Save Draft</button>
-              <button type="submit" className="px-8 py-2.5 bg-gray-900 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-colors">Finalize & Generate PDF</button>
+              <button type="submit" disabled={signatureMode === "type" ? !managerData.managerSignature : !managerData.managerSignatureImage} className="px-8 py-2.5 bg-gray-900 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-colors disabled:opacity-50">Finalize & Generate PDF</button>
             </div>
           </div>
         </form>
