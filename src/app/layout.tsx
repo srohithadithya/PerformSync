@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Enterprise-grade Employee Self-Evaluation and Performance Management system.",
 };
 
+import Header from "@/components/Header";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
@@ -26,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-full flex flex-col">
         <Toaster position="top-right" />
+        <Header />
         {children}
       </body>
     </html>
