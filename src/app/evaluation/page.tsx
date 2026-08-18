@@ -74,32 +74,34 @@ export default function EmployeeEvaluationForm() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState<boolean | null>(null);
 
-  // Mock Employee Database for auto-fetching
-  const mockDirectory = [
-    { id: "EMP001", name: "Alice Smith", location: "New York, NY" },
-    { id: "EMP002", name: "Bob Jones", location: "London, UK" },
-    { id: "INT001", name: "Charlie Brown", location: "San Francisco, CA" }
-  ];
 
-  const validateAndFetch = () => {
+
+  const validateAndFetch = async () => {
     if (!formData.employeeId || !formData.employeeName || !formData.employmentType) return;
     
     setIsValidating(true);
-    // Simulate network delay
-    setTimeout(() => {
-      const match = mockDirectory.find(emp => 
-        emp.id.toLowerCase() === formData.employeeId.toLowerCase() && 
-        emp.name.toLowerCase() === formData.employeeName.toLowerCase()
-      );
+    setValidationSuccess(null);
 
-      if (match) {
-        setFormData(prev => ({ ...prev, location: match.location }));
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('location')
+        .ilike('full_name', formData.employeeName)
+        .ilike('employee_id', formData.employeeId)
+        .single();
+
+      if (profile && !error) {
+        setFormData(prev => ({ ...prev, location: profile.location || "Location not set" }));
         setValidationSuccess(true);
       } else {
         setValidationSuccess(false);
       }
+    } catch (err) {
+      console.error("Auto-fetch error", err);
+      setValidationSuccess(false);
+    } finally {
       setIsValidating(false);
-    }, 600);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

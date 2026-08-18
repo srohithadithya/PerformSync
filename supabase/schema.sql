@@ -8,6 +8,9 @@ CREATE TABLE profiles (
   role_id text NOT NULL DEFAULT 'employee', -- 'employee', 'eng_mgr', 'chro'
   role_name text NOT NULL DEFAULT 'Staff Employee',
   department text NOT NULL DEFAULT 'Engineering',
+  full_name text,
+  employee_id text,
+  location text,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
