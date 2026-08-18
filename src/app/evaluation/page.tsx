@@ -167,16 +167,55 @@ export default function EmployeeEvaluationForm() {
     }
   };
 
+  const [isPolishing, setIsPolishing] = useState<string | null>(null);
+
+  const handleAIPolish = async (sectionId: string, currentText: string) => {
+    if (!currentText || currentText.trim().length < 5) {
+      toast.error("Please write at least a few words before polishing.");
+      return;
+    }
+    setIsPolishing(sectionId);
+    try {
+      const res = await fetch("/api/ai-polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: currentText }),
+      });
+      const data = await res.json();
+      if (data.polishedText) {
+        handleDynamicChange(sectionId, data.polishedText);
+        toast.success("Text polished successfully! ✨");
+      } else {
+        throw new Error(data.error || "Failed to polish text");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsPolishing(null);
+    }
+  };
+
   const renderDynamicSection = (section: EvaluationSection) => {
     if (section.type === "text-area") {
+      const currentVal = formData.dynamicData[section.id] || "";
       return (
-        <textarea 
-          rows={4}
-          value={formData.dynamicData[section.id] || ""} 
-          onChange={(e) => handleDynamicChange(section.id, e.target.value)} 
-          placeholder={section.placeholder}
-          className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border sm:text-sm"
-        />
+        <div className="relative">
+          <textarea 
+            rows={4}
+            value={currentVal} 
+            onChange={(e) => handleDynamicChange(section.id, e.target.value)} 
+            placeholder={section.placeholder}
+            className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border sm:text-sm pr-20"
+          />
+          <button
+            type="button"
+            onClick={() => handleAIPolish(section.id, currentVal)}
+            disabled={isPolishing === section.id || currentVal.length < 5}
+            className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-md text-xs font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span>✨</span> {isPolishing === section.id ? "Polishing..." : "AI Polish"}
+          </button>
+        </div>
       );
     }
 
