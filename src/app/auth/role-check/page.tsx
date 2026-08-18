@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import toast from "react-hot-toast";
 
 export default function RoleCheckPage() {
   const router = useRouter();
@@ -76,14 +77,6 @@ export default function RoleCheckPage() {
           }
           assignedRole = newProfile;
         }
-
-        // Set the current user profile into local storage for quick UI reference (not for security)
-        localStorage.setItem("currentUser", JSON.stringify({
-          id: assignedRole.role_id,
-          name: assignedRole.role_name,
-          title: assignedRole.role_name,
-          department: assignedRole.department
-        }));
 
         // RBAC Routing
         if (assignedRole.role_id === "employee") {

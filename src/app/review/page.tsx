@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import SignaturePad from "@/components/SignaturePad";
+import toast from "react-hot-toast";
 
 function ManagerReviewContent() {
   const router = useRouter();
@@ -65,7 +66,7 @@ function ManagerReviewContent() {
             employeeSignatureDate: data.employee_signed_at,
           });
         } else {
-          alert("Evaluation not found or access denied.");
+          toast.error("Evaluation not found or access denied.");
           router.push("/dashboard");
         }
       }
@@ -109,15 +110,16 @@ function ManagerReviewContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (signatureMode === "type" && !managerData.managerSignature) {
-      alert("Please provide a typed digital signature before generating the PDF.");
+      toast.error("Please provide a typed digital signature before generating the PDF.");
       return;
     }
     if (signatureMode === "draw" && !managerData.managerSignatureImage) {
-      alert("Please draw your digital signature before generating the PDF.");
+      toast.error("Please draw your digital signature before generating the PDF.");
       return;
     }
 
     setIsSubmitting(true);
+    toast.loading("Generating PDF and finalizing review...", { id: "review-submit" });
     try {
       // 1. Combine Employee data and Manager data for the PDF
       const finalPayload = {
@@ -161,13 +163,14 @@ function ManagerReviewContent() {
           if (updateError) throw updateError;
         }
 
+        toast.success("Review finalized and PDF generated successfully!", { id: "review-submit" });
         router.push("/dashboard");
       } else {
-        alert("Failed to generate PDF");
+        toast.error("Failed to generate PDF", { id: "review-submit" });
       }
     } catch (err: any) {
       console.error(err);
-      alert("Error finalizing review: " + err.message);
+      toast.error("Error finalizing review: " + err.message, { id: "review-submit" });
     } finally {
       setIsSubmitting(false);
     }

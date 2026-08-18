@@ -4,14 +4,12 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import toast from "react-hot-toast";
 
 export default function HRDashboard() {
   const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [employees, setEmployees] = useState<any[]>([
-    { id: 1, name: "Bob Jones", department: "Marketing", designation: "Content Lead", status: "Completed", date: "2026-08-15", data: null },
-    { id: 2, name: "Charlie Brown", department: "Sales", designation: "AE", status: "Draft", date: "-", data: null },
-  ]);
+  const [employees, setEmployees] = useState<any[]>([]);
 
   const [managerDept, setManagerDept] = useState("All");
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -80,15 +78,7 @@ export default function HRDashboard() {
           }
         }));
         
-        // Append the mock data for visual purposes if no real data exists
-        if (mappedList.length === 0) {
-          setEmployees([
-            { id: 1, name: "Bob Jones", department: "Marketing", designation: "Content Lead", status: "Completed", date: "2026-08-15", data: null as any },
-            { id: 2, name: "Charlie Brown", department: "Sales", designation: "AE", status: "Draft", date: "-", data: null as any },
-          ]);
-        } else {
-          setEmployees(mappedList);
-        }
+        setEmployees(mappedList);
       }
       setLoading(false);
     };
@@ -99,10 +89,11 @@ export default function HRDashboard() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleGeneratePDF = async (emp: any) => {
     if (!emp.data) {
-      alert("This is a mock completed record. Submit a real evaluation to generate its PDF.");
+      toast.error("Invalid evaluation data.");
       return;
     }
     try {
+      toast.loading("Generating PDF...", { id: "pdf-gen" });
       const res = await fetch("/api/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,8 +106,9 @@ export default function HRDashboard() {
       a.download = `${emp.name.replace(/\s+/g, '_')}_Evaluation.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success("PDF generated successfully!", { id: "pdf-gen" });
     } catch (err) {
-      alert("Failed to generate PDF");
+      toast.error("Failed to generate PDF.", { id: "pdf-gen" });
     }
   };
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SignaturePad from "@/components/SignaturePad";
 import { createClient } from "@/utils/supabase/client";
+import toast from "react-hot-toast";
 
 export default function EmployeeEvaluationForm() {
   const router = useRouter();
@@ -13,11 +14,15 @@ export default function EmployeeEvaluationForm() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/login");
-      } else {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("Authentication error. Please log in again.");
+          return;
+        }
         setUserId(user.id);
+      } catch (err) {
+        console.error(err);
       }
     };
     checkAuth();
@@ -111,11 +116,11 @@ export default function EmployeeEvaluationForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.acceptedNorms) {
-      alert("You must accept the company norms and policies to submit this evaluation.");
+      toast.error("You must accept the company norms and policies to submit this evaluation.");
       return;
     }
     if (!userId) {
-      alert("Authentication error. Please log in again.");
+      toast.error("Authentication error. Please log in again.");
       return;
     }
 
@@ -136,10 +141,11 @@ export default function EmployeeEvaluationForm() {
 
       if (error) throw error;
       
+      toast.success("Evaluation submitted successfully!");
       router.push("/success?type=evaluation");
     } catch (err: any) {
       console.error("Submission error:", err);
-      alert("Failed to submit evaluation: " + err.message);
+      toast.error("Failed to submit evaluation: " + err.message);
     } finally {
       setIsSubmitting(false);
     }
