@@ -27,24 +27,59 @@ export default function RoleCheckPage() {
 
         const email = user.email.toLowerCase();
         
-        // Mock DB Role Assignment based on email address
-        // In a real enterprise app, you would fetch this from a 'profiles' table.
-        let assignedRole;
+        // 1. Check if profile exists
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-        if (email.includes("hr") || email.includes("admin")) {
-          assignedRole = { id: "chro", name: "HR Admin", title: "Chief HR Officer", department: "All" };
-        } else if (email.includes("manager") || email.includes("lead")) {
-          assignedRole = { id: "eng_mgr", name: "Engineering Manager", title: "Manager", department: "Engineering" };
-        } else {
-          // Default to Employee
-          assignedRole = { id: "employee", name: "Staff Employee", title: "Employee", department: "Engineering" };
+        let assignedRole = profile;
+
+        // 2. If no profile, auto-create one
+        if (!profile || profileError) {
+          // Auto-assign roles for demo based on email. Real apps would pre-provision this.
+          let role_id = 'employee';
+          let role_name = 'Staff Employee';
+          let department = 'Engineering';
+
+          if (email.includes("hr") || email.includes("admin")) {
+            role_id = 'chro';
+            role_name = 'HR Admin';
+            department = 'All';
+          } else if (email.includes("manager") || email.includes("lead")) {
+            role_id = 'eng_mgr';
+            role_name = 'Engineering Manager';
+          }
+
+          const { data: newProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              email: email,
+              role_id,
+              role_name,
+              department
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            throw new Error(`Failed to create profile: ${insertError.message}`);
+          }
+          assignedRole = newProfile;
         }
 
-        // Set the mock legacy currentUser for the dashboard UI
-        localStorage.setItem("currentUser", JSON.stringify(assignedRole));
+        // Set the current user profile into local storage for quick UI reference (not for security)
+        localStorage.setItem("currentUser", JSON.stringify({
+          id: assignedRole.role_id,
+          name: assignedRole.role_name,
+          title: assignedRole.role_name,
+          department: assignedRole.department
+        }));
 
         // RBAC Routing
-        if (assignedRole.id === "employee") {
+        if (assignedRole.role_id === "employee") {
           router.push("/evaluation"); // Employees go directly to fill out the form
         } else {
           router.push("/dashboard"); // Managers/HR go directly to the Dashboard

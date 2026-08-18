@@ -3,16 +3,25 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SignaturePad from "@/components/SignaturePad";
+import { createClient } from "@/utils/supabase/client";
 
 export default function EmployeeEvaluationForm() {
   const router = useRouter();
+  const supabase = createClient();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("currentUser");
-    if (!storedUser) {
-      router.push("/login");
-    }
-  }, [router]);
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+      } else {
+        setUserId(user.id);
+      }
+    };
+    checkAuth();
+  }, [router, supabase]);
 
   const [formData, setFormData] = useState({
     employmentType: "", employeeName: "", employeeId: "", department: "", designation: "", reviewPeriod: "", date: "", reportingManager: "", location: "",
@@ -93,15 +102,41 @@ export default function EmployeeEvaluationForm() {
     }, 600);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.acceptedNorms) {
       alert("You must accept the company norms and policies to submit this evaluation.");
       return;
     }
-    // Save to localStorage so Manager Review can pick it up
-    localStorage.setItem("pending_evaluation", JSON.stringify(formData));
-    router.push("/success?type=evaluation");
+    if (!userId) {
+      alert("Authentication error. Please log in again.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('evaluations').insert({
+        user_id: userId,
+        employee_name: formData.employeeName,
+        employee_id: formData.employeeId,
+        department: formData.department,
+        designation: formData.designation,
+        review_period: formData.reviewPeriod,
+        status: 'Pending Manager Review',
+        form_data: formData,
+        employee_signature: signatureMode === "type" ? formData.employeeSignature : formData.employeeSignatureImage,
+        employee_signed_at: new Date(formData.employeeSignatureDate).toISOString()
+      });
+
+      if (error) throw error;
+      
+      router.push("/success?type=evaluation");
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      alert("Failed to submit evaluation: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const [isPolishing, setIsPolishing] = useState(false);
@@ -393,7 +428,9 @@ export default function EmployeeEvaluationForm() {
 
           <div className="flex justify-end gap-4 pt-6 mt-6 border-t border-gray-200">
             <button type="button" className="px-6 py-2.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium shadow-sm transition-colors">Save as Draft</button>
-            <button type="submit" disabled={!formData.acceptedNorms || (signatureMode === "type" ? !formData.employeeSignature : !formData.employeeSignatureImage)} className="px-8 py-2.5 bg-indigo-600 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">Submit Final to Manager</button>
+            <button type="submit" disabled={isSubmitting || !formData.acceptedNorms || (signatureMode === "type" ? !formData.employeeSignature : !formData.employeeSignatureImage)} className="px-8 py-2.5 bg-indigo-600 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50">
+              {isSubmitting ? "Submitting..." : "Submit Final to Manager"}
+            </button>
           </div>
         </form>
       </div>

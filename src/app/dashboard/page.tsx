@@ -2,67 +2,99 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-
 import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 export default function HRDashboard() {
   const router = useRouter();
-  const [employees, setEmployees] = useState([
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [employees, setEmployees] = useState<any[]>([
     { id: 1, name: "Bob Jones", department: "Marketing", designation: "Content Lead", status: "Completed", date: "2026-08-15", data: null },
     { id: 2, name: "Charlie Brown", department: "Sales", designation: "AE", status: "Draft", date: "-", data: null },
   ]);
 
   const [managerDept, setManagerDept] = useState("All");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
-    // Load current user for RBAC
-    const storedUser = localStorage.getItem("currentUser");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.id === "employee") {
-        router.push("/evaluation");
+    const loadDashboardData = async () => {
+      setLoading(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
         return;
       }
-      setCurrentUser(user);
-      setManagerDept(user.department);
-    } else {
-      router.push("/login");
-      return;
-    }
 
-    // Dynamically load any evaluations submitted by the employee from localStorage
-    const pending = localStorage.getItem("pending_evaluation");
-    const completed = localStorage.getItem("completed_evaluation");
-    
-    let dynamicList = [...employees];
-    
-    if (completed) {
-      const parsed = JSON.parse(completed);
-      dynamicList.unshift({
-        id: 999,
-        name: parsed.employeeName,
-        department: parsed.department,
-        designation: parsed.designation,
-        status: "Completed",
-        date: new Date().toISOString().split('T')[0],
-        data: parsed
-      });
-    } else if (pending) {
-      const parsed = JSON.parse(pending);
-      dynamicList.unshift({
-        id: 998,
-        name: parsed.employeeName,
-        department: parsed.department,
-        designation: parsed.designation,
-        status: "Pending Manager Review",
-        date: new Date().toISOString().split('T')[0],
-        data: parsed
-      });
-    }
-    
-    setEmployees(dynamicList);
-  }, []);
+      // Fetch Profile for RBAC
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        if (profile.role_id === "employee") {
+          router.push("/evaluation");
+          return;
+        }
+        setCurrentUser({
+          id: profile.role_id,
+          name: profile.role_name,
+          title: profile.role_name,
+          department: profile.department
+        });
+        setManagerDept(profile.department);
+      } else {
+        router.push("/login");
+        return;
+      }
+
+      // Fetch Evaluations from Supabase
+      // RLS policies automatically filter this based on the manager's department
+      const { data: evaluationsData, error } = await supabase
+        .from('evaluations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (evaluationsData && !error) {
+        // Map DB structure back to UI structure
+        const mappedList = evaluationsData.map(ev => ({
+          id: ev.id,
+          name: ev.employee_name,
+          department: ev.department,
+          designation: ev.designation,
+          status: ev.status,
+          date: ev.created_at ? new Date(ev.created_at).toISOString().split('T')[0] : "-",
+          data: {
+            ...ev.form_data,
+            employeeSignature: ev.employee_signature,
+            employeeSignatureDate: ev.employee_signed_at,
+            managerSignature: ev.manager_signature,
+            managerRating: ev.manager_rating,
+            managerFeedback: ev.manager_feedback,
+            aiSummary: ev.ai_summary,
+            dbId: ev.id // Store the actual DB UUID for the review page to use
+          }
+        }));
+        
+        // Append the mock data for visual purposes if no real data exists
+        if (mappedList.length === 0) {
+          setEmployees([
+            { id: 1, name: "Bob Jones", department: "Marketing", designation: "Content Lead", status: "Completed", date: "2026-08-15", data: null as any },
+            { id: 2, name: "Charlie Brown", department: "Sales", designation: "AE", status: "Draft", date: "-", data: null as any },
+          ]);
+        } else {
+          setEmployees(mappedList);
+        }
+      }
+      setLoading(false);
+    };
+
+    loadDashboardData();
+  }, [router, supabase]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleGeneratePDF = async (emp: any) => {
@@ -185,7 +217,7 @@ export default function HRDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {emp.status === 'Pending Manager Review' ? (
-                        <Link href="/review" className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-md">Review & Rate</Link>
+                        <Link href={`/review?id=${emp.id}`} className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-md">Review & Rate</Link>
                       ) : emp.status === 'Completed' ? (
                         <button onClick={() => handleGeneratePDF(emp)} className="text-gray-600 hover:text-gray-900 bg-gray-100 px-3 py-1 rounded-md flex items-center justify-end ml-auto">
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>

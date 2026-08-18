@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 import SignaturePad from "@/components/SignaturePad";
 
-export default function ManagerReviewForm() {
+function ManagerReviewContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = createClient();
+  const evalId = searchParams.get('id');
+
   const [managerData, setManagerData] = useState({
     commentsRole: "",
     commentsCoreSkills: "",
@@ -27,18 +32,46 @@ export default function ManagerReviewForm() {
   });
   
   const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
+  const [managerId, setManagerId] = useState<string | null>(null);
   
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [employeeData, setEmployeeData] = useState<any>(null);
 
   useEffect(() => {
-    // Load the pending evaluation from localStorage (simulating DB fetch)
-    const stored = localStorage.getItem("pending_evaluation");
-    if (stored) {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      setEmployeeData(JSON.parse(stored));
-    }
-  }, []);
+    const fetchEval = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      setManagerId(user.id);
+
+      if (evalId) {
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('id', evalId)
+          .single();
+        
+        if (data && !error) {
+          // Reconstruct payload for the UI and PDF Generation
+          setEmployeeData({
+            ...data.form_data,
+            employeeName: data.employee_name,
+            employeeId: data.employee_id,
+            department: data.department,
+            designation: data.designation,
+            employeeSignature: data.employee_signature,
+            employeeSignatureDate: data.employee_signed_at,
+          });
+        } else {
+          alert("Evaluation not found or access denied.");
+          router.push("/dashboard");
+        }
+      }
+    };
+    fetchEval();
+  }, [evalId, router, supabase]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -71,6 +104,8 @@ export default function ManagerReviewForm() {
     }
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (signatureMode === "type" && !managerData.managerSignature) {
@@ -82,13 +117,16 @@ export default function ManagerReviewForm() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      // Combine Employee data and Manager data for the PDF
+      // 1. Combine Employee data and Manager data for the PDF
       const finalPayload = {
         ...employeeData,
-        managerReview: managerData
+        managerReview: managerData,
+        aiSummary: aiSummary
       };
 
+      // 2. Generate PDF
       const res = await fetch('/api/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,16 +143,33 @@ export default function ManagerReviewForm() {
         a.click();
         window.URL.revokeObjectURL(url);
         
-        // Cleanup and redirect
-        localStorage.setItem("completed_evaluation", JSON.stringify(finalPayload));
-        localStorage.removeItem("pending_evaluation");
+        // 3. Update Database to Completed
+        if (evalId && managerId) {
+          const { error: updateError } = await supabase
+            .from('evaluations')
+            .update({
+              status: 'Completed',
+              manager_id: managerId,
+              manager_feedback: JSON.stringify(managerData),
+              manager_rating: managerData.overallRating,
+              manager_signature: signatureMode === "type" ? managerData.managerSignature : managerData.managerSignatureImage,
+              manager_signed_at: new Date(managerData.managerSignatureDate).toISOString(),
+              ai_summary: aiSummary
+            })
+            .eq('id', evalId);
+            
+          if (updateError) throw updateError;
+        }
+
         router.push("/dashboard");
       } else {
         alert("Failed to generate PDF");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Error generating PDF");
+      alert("Error finalizing review: " + err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -265,11 +320,21 @@ export default function ManagerReviewForm() {
             <div className="text-sm text-gray-500 italic">This will finalize the performance review and generate the signed PDF.</div>
             <div className="flex gap-4">
               <button type="button" className="px-6 py-2.5 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium shadow-sm transition-colors">Save Draft</button>
-              <button type="submit" disabled={signatureMode === "type" ? !managerData.managerSignature : !managerData.managerSignatureImage} className="px-8 py-2.5 bg-gray-900 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-colors disabled:opacity-50">Finalize & Generate PDF</button>
+              <button type="submit" disabled={isSubmitting || (signatureMode === "type" ? !managerData.managerSignature : !managerData.managerSignatureImage)} className="px-8 py-2.5 bg-gray-900 border border-transparent rounded-md shadow-md text-white font-medium hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-colors disabled:opacity-50">
+                {isSubmitting ? "Finalizing..." : "Finalize & Generate PDF"}
+              </button>
             </div>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ManagerReviewForm() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading Review Form...</div>}>
+      <ManagerReviewContent />
+    </Suspense>
   );
 }
