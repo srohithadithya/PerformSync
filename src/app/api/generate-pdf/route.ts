@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createClient } from '@/utils/supabase/server';
 import { checkRateLimit } from '@/utils/rate-limit';
 
-const PdfRequestSchema = z.record(z.any()); // Accept standard object format, validate deeply if needed
+const PdfRequestSchema = z.record(z.string(), z.any()); // Accept standard object format, validate deeply if needed
 
 export async function POST(request: Request) {
   try {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload.' }, { status: 400 });
     }
 
-    const data = validationResult.data;
+    const data = validationResult.data as any;
 
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);

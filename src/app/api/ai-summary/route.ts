@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { checkRateLimit } from '@/utils/rate-limit';
 
 // Prevent arbitrary large objects from crashing the LLM prompt.
-const SummaryRequestSchema = z.record(z.any());
+const SummaryRequestSchema = z.record(z.string(), z.any());
 
 export async function POST(request: Request) {
   try {
