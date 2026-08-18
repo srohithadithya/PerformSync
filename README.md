@@ -18,13 +18,13 @@ PerformSync digitizes traditional PDF-based performance reviews into a dynamic w
 - **Passwordless Magic Links:** Employees authenticate securely using Supabase One-Time Passwords (OTP) sent directly to their organizational email, eliminating password fatigue.
 - **Role-Based Access Control (RBAC):** Strict client-side route guards ensure Employees can only access their evaluation forms, while Managers are locked exclusively to viewing their own department's data. HR/Admins get unfiltered master access.
 
-### 📝 AI-Powered Evaluations
+### 📝 AI-Powered & Dynamic Evaluations
+- **Dynamic Configuration Engine:** The entire evaluation structure (KPIs, Text Areas, Rating Grids) is driven by a central `evaluation-template.ts` file, making it infinitely scalable without touching React code.
 - **NVIDIA NIM Integration:** Utilizes Meta Llama 3 8B Instruct via NVIDIA NIM to automatically polish employee feedback and summarize long-form text.
-- **Dynamic KPI Tracking:** Employees can add, edit, and track multiple Key Performance Indicators natively in the UI.
 
-### 🖋️ Digital Signatures & PDF Generation
+### 🖋️ Digital Signatures & Dynamic PDF Generation
 - **Signature Pad:** Built-in canvas for employees to draw or type their digital signature.
-- **Programmatic PDF Assembly:** Uses `pdf-lib` to dynamically assemble a fully completed, professionally formatted PDF document containing the employee's data, manager's review, and drawn signatures.
+- **Programmatic Auto-Paginating PDF:** Uses `pdf-lib` to dynamically assemble a fully completed, professionally formatted PDF document based on the `evaluation-template.ts`. It features intelligent auto-pagination to handle forms of any length seamlessly.
 
 ## 🛠️ Technology Stack
 
