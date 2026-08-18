@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="max-w-3xl w-full bg-white rounded-xl shadow-lg p-8 text-center">
-        <h1 className="text-4xl font-extrabold text-blue-900 mb-4">Smart AI PDF Filler</h1>
+        <h1 className="text-4xl font-extrabold text-blue-900 mb-4">PerformSync</h1>
         <p className="text-lg text-gray-600 mb-8">
           The all-in-one platform for Employee Self-Evaluations and HR Analytics.
         </p>

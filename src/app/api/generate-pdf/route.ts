@@ -1,9 +1,36 @@
 import { NextResponse } from 'next/server';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { z } from 'zod';
+import { createClient } from '@/utils/supabase/server';
+import { checkRateLimit } from '@/utils/rate-limit';
+
+const PdfRequestSchema = z.record(z.any()); // Accept standard object format, validate deeply if needed
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
+    // 1. Authentication Check (Zero Trust)
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized. Secure session required.' }, { status: 401 });
+    }
+
+    // 2. Rate Limiting (Abuse Protection - max 5 per minute)
+    const isAllowed = checkRateLimit(`generate-pdf:${user.id}`, 5, 60 * 1000);
+    if (!isAllowed) {
+      return NextResponse.json({ error: 'Too Many Requests for PDF Generation.' }, { status: 429 });
+    }
+
+    // 3. Basic Input Validation
+    const rawData = await request.json();
+    const validationResult = PdfRequestSchema.safeParse(rawData);
+    
+    if (!validationResult.success) {
+      return NextResponse.json({ error: 'Invalid payload.' }, { status: 400 });
+    }
+
+    const data = validationResult.data;
 
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -143,7 +170,7 @@ export async function POST(request: Request) {
 
     const pdfBytes = await pdfDoc.save();
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="Evaluation_${data.employeeName || 'Employee'}.pdf"`,

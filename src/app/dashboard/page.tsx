@@ -3,15 +3,34 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 
+import { useRouter } from "next/navigation";
+
 export default function HRDashboard() {
+  const router = useRouter();
   const [employees, setEmployees] = useState([
     { id: 1, name: "Bob Jones", department: "Marketing", designation: "Content Lead", status: "Completed", date: "2026-08-15", data: null },
     { id: 2, name: "Charlie Brown", department: "Sales", designation: "AE", status: "Draft", date: "-", data: null },
   ]);
 
   const [managerDept, setManagerDept] = useState("All");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
+    // Load current user for RBAC
+    const storedUser = localStorage.getItem("currentUser");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user.id === "employee") {
+        router.push("/evaluation");
+        return;
+      }
+      setCurrentUser(user);
+      setManagerDept(user.department);
+    } else {
+      router.push("/login");
+      return;
+    }
+
     // Dynamically load any evaluations submitted by the employee from localStorage
     const pending = localStorage.getItem("pending_evaluation");
     const completed = localStorage.getItem("completed_evaluation");
@@ -74,8 +93,12 @@ export default function HRDashboard() {
         
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">HR & Manager Portal</h1>
-            <p className="text-gray-500 mt-1">Review employee self-assessments and manage final evaluations.</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {currentUser?.department === "All" ? "HR & Manager Portal" : `${currentUser?.department || "Department"} Overview`}
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {currentUser ? `Welcome back, ${currentUser.name} - ${currentUser.title}` : "Review employee self-assessments and manage final evaluations."}
+            </p>
           </div>
           <div className="flex gap-3">
             <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md font-medium hover:bg-gray-50 shadow-sm flex items-center">
@@ -113,12 +136,21 @@ export default function HRDashboard() {
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
             <h2 className="text-lg font-medium text-gray-900">Recent Submissions</h2>
             <div className="flex gap-4">
-              <select value={managerDept} onChange={(e) => setManagerDept(e.target.value)} className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white">
-                <option value="All">All Departments (HR View)</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Sales">Sales</option>
-              </select>
+              {currentUser?.department === "All" && (
+                <select value={managerDept} onChange={(e) => setManagerDept(e.target.value)} className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white">
+                  <option value="All">All Departments (HR View)</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Sales">Sales</option>
+                  <option value="Product">Product</option>
+                </select>
+              )}
+              {currentUser?.department !== "All" && (
+                <div className="px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-medium border border-indigo-100 rounded-md flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                  Locked to {currentUser?.department}
+                </div>
+              )}
               <input type="text" placeholder="Search employees..." className="block w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border" />
             </div>
           </div>

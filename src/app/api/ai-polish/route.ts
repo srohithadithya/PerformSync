@@ -1,16 +1,46 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { z } from 'zod';
+import { createClient } from '@/utils/supabase/server';
+import { checkRateLimit } from '@/utils/rate-limit';
+
+// Strict Input Validation Schema (Max 2000 chars to prevent token abuse)
+const PolishRequestSchema = z.object({
+  text: z.string().min(1, "Text is required").max(2000, "Text exceeds maximum allowed length of 2000 characters"),
+});
 
 export async function POST(request: Request) {
   try {
-    const { text } = await request.json();
+    // 1. Authentication Check (Zero Trust)
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!text) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized. Secure session required.' }, { status: 401 });
     }
 
+    // 2. Rate Limiting (Abuse Protection)
+    // Limit: 10 requests per minute per authenticated user
+    const isAllowed = checkRateLimit(`ai-polish:${user.id}`, 10, 60 * 1000);
+    if (!isAllowed) {
+      return NextResponse.json({ error: 'Too Many Requests. Please slow down.' }, { status: 429 });
+    }
+
+    // 3. Input Validation & Sanitization (Zod)
+    const body = await request.json();
+    const validationResult = PolishRequestSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid Input', details: validationResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { text } = validationResult.data;
+
     if (!process.env.NVIDIA_API_KEY) {
-      return NextResponse.json({ polishedText: `[Mock Polished]: ${text}` });
+      return NextResponse.json({ polishedText: `[Mock Polished for ${user.email}]: ${text}` });
     }
 
     const openai = new OpenAI({
@@ -32,6 +62,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ polishedText });
   } catch (error) {
     console.error("AI Polish Error:", error);
-    return NextResponse.json({ error: 'Failed to polish text' }, { status: 500 });
+    return NextResponse.json({ error: 'An unexpected server error occurred.' }, { status: 500 });
   }
 }

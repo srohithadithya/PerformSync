@@ -6,33 +6,30 @@ import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setMessage(null);
 
     try {
-      // Normally: const { error } = await supabase.auth.signInWithPassword({ email, password });
-      // Because we lack env variables right now, we'll simulate a mock bypass if they enter anything
-      // Remove this mock bypass once .env.local is configured with real keys!
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes("mock.supabase")) {
-        alert("Running in Mock Mode: Bypassing auth.");
-        router.push("/dashboard");
-        return;
-      }
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      
-      router.push("/dashboard");
+      if (error) {
+        setMessage({ type: 'error', text: error.message });
+      } else {
+        setMessage({ type: 'success', text: "Check your email for the magic link!" });
+      }
     } catch (err: any) {
-      setError(err.message);
+      setMessage({ type: 'error', text: err.message || "An unexpected error occurred." });
     } finally {
       setLoading(false);
     }
@@ -40,26 +37,48 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">Employee & Manager Access</p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</div>}
-          <div className="rounded-md shadow-sm space-y-4">
-            <div>
-              <label className="sr-only">Email address</label>
-              <input name="email" type="email" required className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div>
-              <label className="sr-only">Password</label>
-              <input name="password" type="password" required className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div className="flex justify-center mb-4">
+            <div className="h-12 w-12 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+              </svg>
             </div>
           </div>
+          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900 tracking-tight">PerformSync</h2>
+          <p className="mt-2 text-center text-sm text-gray-500">Sign in securely with your organization email.</p>
+        </div>
+        
+        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          {message && (
+            <div className={`p-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+              {message.text}
+            </div>
+          )}
+          
           <div>
-            <button type="submit" disabled={loading} className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
-              {loading ? "Signing in..." : "Sign in"}
+            <label htmlFor="email-address" className="sr-only">Email address</label>
+            <input
+              id="email-address"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="appearance-none rounded-md relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Enter your company email (@company.com)"
+            />
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-md transition-colors disabled:opacity-50"
+            >
+              {loading ? "Sending Magic Link..." : "Send Magic Link"}
             </button>
           </div>
         </form>

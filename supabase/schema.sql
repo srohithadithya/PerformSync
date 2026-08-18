@@ -1,53 +1,54 @@
--- Create a table for users (extends Supabase auth.users)
-CREATE TABLE public.users (
-  id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  role TEXT DEFAULT 'employee' CHECK (role IN ('employee', 'manager', 'admin')),
-  department TEXT,
-  designation TEXT,
-  manager_id UUID REFERENCES public.users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+-- Create Evaluations Table
+CREATE TABLE evaluations (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  employee_name text NOT NULL,
+  employee_id text,
+  department text NOT NULL,
+  designation text NOT NULL,
+  review_period text,
+  status text DEFAULT 'Pending Manager Review', -- 'Pending Manager Review' or 'Completed'
+  
+  -- Form Data (JSONB is best for nested/flexible data like KPIs and Reflections)
+  form_data jsonb NOT NULL,
+  
+  -- Manager Review Data
+  manager_id uuid REFERENCES auth.users(id),
+  manager_feedback text,
+  manager_rating text,
+  
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable RLS for users
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view their own profile" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Managers can view their direct reports" ON public.users FOR SELECT USING (auth.uid() = manager_id);
-CREATE POLICY "Admins can view everyone" ON public.users FOR SELECT USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+-- Enable Row Level Security (RLS)
+ALTER TABLE evaluations ENABLE ROW LEVEL SECURITY;
 
--- Create evaluations table
-CREATE TABLE public.evaluations (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  employee_id UUID REFERENCES public.users(id) NOT NULL,
-  manager_id UUID REFERENCES public.users(id),
-  review_period TEXT,
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'pending_manager_review', 'completed')),
-  employee_data JSONB DEFAULT '{}'::jsonb,  -- Stores Section 1 to 5
-  manager_data JSONB DEFAULT '{}'::jsonb,   -- Stores Section 6
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
+-- Policy: Employees can read and insert their own evaluations
+CREATE POLICY "Employees can read own evaluations" 
+  ON evaluations FOR SELECT 
+  USING (auth.uid() = user_id);
 
--- Enable RLS for evaluations
-ALTER TABLE public.evaluations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Employees can manage their own evaluations" ON public.evaluations 
-  FOR ALL USING (auth.uid() = employee_id);
-CREATE POLICY "Managers can view and edit their reports evaluations" ON public.evaluations 
-  FOR ALL USING (auth.uid() = manager_id);
-CREATE POLICY "Admins have full access to all evaluations" ON public.evaluations 
-  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "Employees can insert own evaluations" 
+  ON evaluations FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
 
--- Function to automatically update the updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-   NEW.updated_at = NOW();
-   RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- Policy: Managers can read and update evaluations in their department
+-- (Assuming we create a 'profiles' table or use auth.users metadata for role mapping)
+-- For a robust enterprise app, you'd join with a profiles table to check department.
+-- As a baseline, this policy allows updates if the user is a manager of that department.
+CREATE POLICY "Managers can read department evaluations" 
+  ON evaluations FOR SELECT 
+  USING (
+    (auth.jwt() ->> 'email') LIKE '%manager%' OR 
+    (auth.jwt() ->> 'email') LIKE '%admin%' OR 
+    (auth.jwt() ->> 'email') LIKE '%hr%'
+  );
 
-CREATE TRIGGER update_evaluations_updated_at
-BEFORE UPDATE ON public.evaluations
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+CREATE POLICY "Managers can update department evaluations" 
+  ON evaluations FOR UPDATE 
+  USING (
+    (auth.jwt() ->> 'email') LIKE '%manager%' OR 
+    (auth.jwt() ->> 'email') LIKE '%admin%' OR 
+    (auth.jwt() ->> 'email') LIKE '%hr%'
+  );

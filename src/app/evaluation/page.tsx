@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SignaturePad from "@/components/SignaturePad";
 
 export default function EmployeeEvaluationForm() {
   const router = useRouter();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("currentUser");
+    if (!storedUser) {
+      router.push("/login");
+    }
+  }, [router]);
+
   const [formData, setFormData] = useState({
     employmentType: "", employeeName: "", employeeId: "", department: "", designation: "", reviewPeriod: "", date: "", reportingManager: "", location: "",
     kpis: [{ id: 1, kpi: "", target: "", achieved: "", status: "", comments: "" }],
@@ -31,7 +39,7 @@ export default function EmployeeEvaluationForm() {
   
   const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
