@@ -3,12 +3,12 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { z } from 'zod';
 import { createClient } from '@/utils/supabase/server';
 import { checkRateLimit } from '@/utils/rate-limit';
+import { evaluationTemplate } from '@/config/evaluation-template';
 
-const PdfRequestSchema = z.record(z.string(), z.any()); // Accept standard object format, validate deeply if needed
+const PdfRequestSchema = z.record(z.string(), z.any()); 
 
 export async function POST(request: Request) {
   try {
-    // 1. Authentication Check (Zero Trust)
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -16,13 +16,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized. Secure session required.' }, { status: 401 });
     }
 
-    // 2. Rate Limiting (Abuse Protection - max 5 per minute)
     const isAllowed = checkRateLimit(`generate-pdf:${user.id}`, 5, 60 * 1000);
     if (!isAllowed) {
       return NextResponse.json({ error: 'Too Many Requests for PDF Generation.' }, { status: 429 });
     }
 
-    // 3. Basic Input Validation
     const rawData = await request.json();
     const validationResult = PdfRequestSchema.safeParse(rawData);
     
@@ -46,8 +44,12 @@ export async function POST(request: Request) {
       currentY = height - 50;
     };
 
+    const checkPageBreak = (neededSpace = 50) => {
+      if (currentY < neededSpace) addNewPage();
+    };
+
     const drawText = (text: string, size = 10, isBold = false, color = rgb(0,0,0)) => {
-      if (currentY < 50) addNewPage();
+      checkPageBreak(size + 10);
       page.drawText(String(text || 'N/A'), {
         x: margin,
         y: currentY,
@@ -87,31 +89,66 @@ export async function POST(request: Request) {
     
     currentY -= 20;
 
-    // --- Employee Assessment Sections ---
-    drawText('PART 1: EMPLOYEE SELF-ASSESSMENT', 14, true, rgb(0.2, 0.2, 0.2));
-    currentY -= 10;
-
-    // Achievements
-    drawText('Key Achievements & Results:', 12, true);
-    drawWrappedText(data.keyAchievements || 'None provided.', 500, 10);
-    currentY -= 15;
-
-    // Self Reflection
-    drawText('Self-Reflection:', 12, true);
-    drawText('Challenges Encountered:', 10, true);
-    drawWrappedText(data.selfReflection?.challenges || 'N/A', 500, 10);
-    currentY -= 10;
-    
-    drawText('Areas for Development:', 10, true);
-    drawWrappedText(data.selfReflection?.areasForDevelopment || 'N/A', 500, 10);
-    currentY -= 20;
-
-    // --- Manager Review Sections ---
-    if (currentY < 200) addNewPage(); // Ensure manager review starts on a good page
-    drawText('PART 2: MANAGER REVIEW & FEEDBACK', 14, true, rgb(0.2, 0.2, 0.2));
-    currentY -= 10;
-    
+    const dynamicData = data.dynamicData || {};
     const mgr = data.managerReview || {};
+
+    // --- Dynamic Employee Assessment & Manager Review ---
+    drawText('PART 1: ASSESSMENT & FEEDBACK', 14, true, rgb(0.2, 0.2, 0.2));
+    currentY -= 10;
+
+    for (const section of evaluationTemplate) {
+      checkPageBreak(60);
+      drawText(section.title, 12, true, rgb(0, 0, 0.5));
+      currentY -= 5;
+
+      const employeeResponse = dynamicData[section.id];
+      const managerComment = mgr.sectionComments ? mgr.sectionComments[section.id] : "";
+
+      if (section.type === "text-area") {
+        drawWrappedText(employeeResponse || "No response provided.", 500, 10);
+      } 
+      else if (section.type === "kpi-list") {
+        if (Array.isArray(employeeResponse) && employeeResponse.length > 0) {
+          employeeResponse.forEach((kpi: any, idx: number) => {
+            checkPageBreak(40);
+            drawText(`KPI #${idx + 1}: ${kpi.kpi || "N/A"}`, 10, true);
+            drawText(`Target: ${kpi.target || "N/A"} | Achieved: ${kpi.achieved || "N/A"} | Status: ${kpi.status || "N/A"}`, 10);
+            drawWrappedText(`Comments: ${kpi.comments || "None"}`, 480, 9);
+            currentY -= 5;
+          });
+        } else {
+          drawText("No KPIs provided.", 10);
+        }
+      }
+      else if (section.type === "rating-grid" && section.items) {
+        section.items.forEach(item => {
+          checkPageBreak(50);
+          drawText(`• ${item.label}`, 10, true);
+          const empVal = employeeResponse?.[item.id] || {};
+          const mgrVal = mgr.itemRatings?.[item.id];
+          
+          drawText(`Employee Rating: ${empVal.rating || "N/A"}/5`, 10);
+          drawWrappedText(`Examples: ${empVal.examples || "None"}`, 480, 9);
+          if (mgrVal) {
+            drawText(`Manager Rating: ${mgrVal}/5`, 10, false, rgb(0, 0.3, 0));
+          }
+          currentY -= 5;
+        });
+      }
+
+      if (managerComment) {
+        checkPageBreak(40);
+        drawText("Manager's Section Feedback:", 10, true, rgb(0, 0.3, 0));
+        drawWrappedText(managerComment, 480, 9);
+      }
+      
+      currentY -= 15;
+    }
+
+    // --- Overall Manager Review ---
+    checkPageBreak(120);
+    drawText('PART 2: OVERALL MANAGER REVIEW', 14, true, rgb(0.2, 0.2, 0.2));
+    currentY -= 10;
     
     drawText('Manager Overall Comments:', 12, true);
     drawWrappedText(mgr.overallComments || 'No comments provided.', 500, 10);
@@ -125,7 +162,7 @@ export async function POST(request: Request) {
     currentY -= 30;
 
     // --- Declarations & Signatures ---
-    if (currentY < 150) addNewPage(); // Ensure signatures don't get cut off
+    checkPageBreak(200);
     drawText('PART 3: DECLARATIONS & SIGNATURES', 14, true, rgb(0.2, 0.2, 0.2));
     currentY -= 10;
 

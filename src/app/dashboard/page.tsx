@@ -59,24 +59,33 @@ export default function HRDashboard() {
 
       if (evaluationsData && !error) {
         // Map DB structure back to UI structure
-        const mappedList = evaluationsData.map(ev => ({
-          id: ev.id,
-          name: ev.employee_name,
-          department: ev.department,
-          designation: ev.designation,
-          status: ev.status,
-          date: ev.created_at ? new Date(ev.created_at).toISOString().split('T')[0] : "-",
-          data: {
-            ...ev.form_data,
-            employeeSignature: ev.employee_signature,
-            employeeSignatureDate: ev.employee_signed_at,
-            managerSignature: ev.manager_signature,
-            managerRating: ev.manager_rating,
-            managerFeedback: ev.manager_feedback,
-            aiSummary: ev.ai_summary,
-            dbId: ev.id // Store the actual DB UUID for the review page to use
-          }
-        }));
+        const mappedList = evaluationsData.map(ev => {
+          let parsedManagerFeedback = {};
+          try {
+            if (ev.manager_feedback) parsedManagerFeedback = typeof ev.manager_feedback === 'string' ? JSON.parse(ev.manager_feedback) : ev.manager_feedback;
+          } catch (e) {}
+
+          return {
+            id: ev.id,
+            name: ev.employee_name,
+            department: ev.department,
+            designation: ev.designation,
+            status: ev.status,
+            date: ev.created_at ? new Date(ev.created_at).toISOString().split('T')[0] : "-",
+            data: {
+              ...ev.form_data,
+              employeeName: ev.employee_name,
+              employeeId: ev.employee_id,
+              department: ev.department,
+              designation: ev.designation,
+              employeeSignature: ev.employee_signature,
+              employeeSignatureDate: ev.employee_signed_at,
+              managerReview: parsedManagerFeedback,
+              aiSummary: ev.ai_summary,
+              dbId: ev.id // Store the actual DB UUID for the review page to use
+            }
+          };
+        });
         
         setEmployees(mappedList);
       }
