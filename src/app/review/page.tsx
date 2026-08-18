@@ -28,12 +28,13 @@ export default function ManagerReviewForm() {
   
   const [signatureMode, setSignatureMode] = useState<"type" | "draw">("type");
   
-  const [employeeData, setEmployeeData] = useState<any>(null);
+  const [employeeData, setEmployeeData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     // Load the pending evaluation from localStorage (simulating DB fetch)
     const stored = localStorage.getItem("pending_evaluation");
     if (stored) {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       setEmployeeData(JSON.parse(stored));
     }
   }, []);

@@ -37,8 +37,12 @@ function LoginFormComponent() {
       } else {
         setMessage({ type: 'success', text: "Check your email for the magic link!" });
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || "An unexpected error occurred." });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setMessage({ type: 'error', text: err.message || "An unexpected error occurred." });
+      } else {
+        setMessage({ type: 'error', text: "An unexpected error occurred." });
+      }
     } finally {
       setLoading(false);
     }

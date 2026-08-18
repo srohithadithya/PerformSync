@@ -64,7 +64,7 @@ export default function HRDashboard() {
     setEmployees(dynamicList);
   }, []);
 
-  const handleGeneratePDF = async (emp: any) => {
+  const handleGeneratePDF = async (emp: Record<string, unknown>) => {
     if (!emp.data) {
       alert("This is a mock completed record. Submit a real evaluation to generate its PDF.");
       return;
