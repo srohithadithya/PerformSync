@@ -91,7 +91,11 @@ export default function EmployeeEvaluationForm() {
         .single();
 
       if (profile && !error) {
-        setFormData(prev => ({ ...prev, location: profile.location || "Location not set" }));
+        if (profile.location) {
+          setFormData(prev => ({ ...prev, location: profile.location }));
+        } else {
+          setFormData(prev => ({ ...prev, location: "" })); // Clear it so user can type
+        }
         setValidationSuccess(true);
       } else {
         setValidationSuccess(false);
@@ -193,10 +197,16 @@ export default function EmployeeEvaluationForm() {
                 Warning: Employee ID and Name combination not found in HR directory.
               </div>
             )}
-            {validationSuccess === true && (
+            {validationSuccess === true && formData.location && (
               <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                 Employee validated successfully. Location auto-filled!
+              </div>
+            )}
+            {validationSuccess === true && !formData.location && (
+              <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                Employee validated successfully. Location not found, please enter manually.
               </div>
             )}
 
@@ -209,7 +219,7 @@ export default function EmployeeEvaluationForm() {
               <div><label className="block text-sm font-medium text-gray-700">Review Period</label><input required type="text" name="reviewPeriod" value={formData.reviewPeriod} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Date</label><input required type="date" name="date" value={formData.date} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Reporting Manager</label><input required type="text" name="reportingManager" value={formData.reportingManager} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
-              <div><label className="block text-sm font-medium text-gray-700">Location <span className="text-xs text-green-600 font-normal ml-1">(Auto-fetched)</span></label><input required type="text" name="location" value={formData.location} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
+              <div><label className="block text-sm font-medium text-gray-700">Location <span className="text-xs text-green-600 font-normal ml-1">(Auto-fetched or Manual)</span></label><input required type="text" name="location" value={formData.location} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" placeholder="Enter location..." /></div>
             </div>
           </section>
 
