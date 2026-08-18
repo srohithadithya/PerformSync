@@ -14,8 +14,12 @@ export default function RoleCheckPage() {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         
-        if (error || !user || !user.email) {
-          router.push("/login");
+        if (error) {
+          router.push(`/login?error=${encodeURIComponent(`Role Check Error: ${error.message}`)}`);
+          return;
+        }
+        if (!user || !user.email) {
+          router.push(`/login?error=${encodeURIComponent("Role Check Error: No active session found. Please try logging in again.")}`);
           return;
         }
 
@@ -46,9 +50,9 @@ export default function RoleCheckPage() {
           router.push("/dashboard"); // Managers/HR go directly to the Dashboard
         }
 
-      } catch (err) {
+      } catch (err: any) {
         console.error("Auth routing error:", err);
-        router.push("/login");
+        router.push(`/login?error=${encodeURIComponent(`Unexpected Auth Error: ${err?.message || "Unknown error"}`)}`);
       }
     };
 
