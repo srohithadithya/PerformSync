@@ -98,7 +98,7 @@ export default function EmployeeEvaluationForm() {
   const [validationSuccess, setValidationSuccess] = useState<boolean | null>(null);
 
   const validateAndFetch = async () => {
-    if (!formData.employeeId || !formData.employeeName || !formData.employmentType) return;
+    if (!formData.employeeId) return;
     
     setIsValidating(true);
     setValidationSuccess(null);
@@ -106,17 +106,18 @@ export default function EmployeeEvaluationForm() {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('location')
-        .ilike('full_name', formData.employeeName)
+        .select('full_name, department, role_name, location')
         .ilike('employee_id', formData.employeeId)
         .single();
 
       if (profile && !error) {
-        if (profile.location) {
-          setFormData(prev => ({ ...prev, location: profile.location }));
-        } else {
-          setFormData(prev => ({ ...prev, location: "" }));
-        }
+        setFormData(prev => ({ 
+          ...prev, 
+          employeeName: profile.full_name || prev.employeeName,
+          department: profile.department || prev.department,
+          designation: profile.role_name || prev.designation,
+          location: profile.location || prev.location
+        }));
         setValidationSuccess(true);
       } else {
         setValidationSuccess(false);
@@ -331,26 +332,20 @@ export default function EmployeeEvaluationForm() {
             
             {validationSuccess === false && (
               <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
-                Warning: Employee ID and Name combination not found in HR directory.
+                Warning: Employee ID not found in HR directory. Please enter details manually.
               </div>
             )}
-            {validationSuccess === true && formData.location && (
+            {validationSuccess === true && (
               <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                Employee validated successfully. Location auto-filled!
-              </div>
-            )}
-            {validationSuccess === true && !formData.location && (
-              <div className="mb-6 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                Employee validated successfully. Location not found, please enter manually.
+                Employee details auto-filled successfully!
               </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
-              {isValidating && <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">Validating...</div>}
-              <div><label className="block text-sm font-medium text-gray-700">Employee Name</label><input required type="text" name="employeeName" value={formData.employeeName} onChange={handleChange} onBlur={validateAndFetch} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
-              <div><label className="block text-sm font-medium text-gray-700">Employee ID</label><input required type="text" name="employeeId" value={formData.employeeId} onChange={handleChange} onBlur={validateAndFetch} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
+              {isValidating && <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">Fetching details...</div>}
+              <div><label className="block text-sm font-medium text-gray-700">Employee ID</label><input required type="text" name="employeeId" value={formData.employeeId} onChange={handleChange} onBlur={validateAndFetch} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" placeholder="Enter ID to auto-fill" /></div>
+              <div><label className="block text-sm font-medium text-gray-700">Employee Name</label><input required type="text" name="employeeName" value={formData.employeeName} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-gray-50" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Department</label><input required type="text" name="department" value={formData.department} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Designation</label><input required type="text" name="designation" value={formData.designation} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
               <div><label className="block text-sm font-medium text-gray-700">Review Period</label><input required type="text" name="reviewPeriod" value={formData.reviewPeriod} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" /></div>
