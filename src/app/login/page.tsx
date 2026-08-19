@@ -46,12 +46,13 @@ function LoginFormComponent() {
         setIsSignUp(false); 
         
       } else {
-        let loginEmail = identifier;
+        let loginEmail = identifier.trim();
+        const cleanMpin = mpin.trim();
         
         // If they type an Employee ID instead of an email
-        if (!identifier.includes('@')) {
+        if (!loginEmail.includes('@')) {
           const { data: resolvedEmail, error: rpcError } = await supabase.rpc('get_email_by_emp_id', { 
-            p_employee_id: identifier 
+            p_employee_id: loginEmail 
           });
           
           if (rpcError || !resolvedEmail) {
@@ -62,7 +63,7 @@ function LoginFormComponent() {
 
         const { error } = await supabase.auth.signInWithPassword({
           email: loginEmail,
-          password: mpin,
+          password: cleanMpin,
         });
         
         if (error) throw error;
