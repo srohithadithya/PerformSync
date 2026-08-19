@@ -156,7 +156,11 @@ export default function EmployeeEvaluationForm() {
         setValidationSuccess(true);
       } else {
         setValidationSuccess(false);
-        setFetchErrorMsg(error ? `DB Error: ${error.message} (Code: ${error.code})` : "No profile found for this Employee ID.");
+        if (error && error.code === 'PGRST116') {
+          setFetchErrorMsg("ID not found, or you do not have permission to view it.");
+        } else {
+          setFetchErrorMsg(error ? `DB Error: ${error.message} (Code: ${error.code})` : "No profile found.");
+        }
       }
     } catch (err: any) {
       console.error("Auto-fetch error", err);
