@@ -50,6 +50,15 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evaluations ENABLE ROW LEVEL SECURITY;
 
 -- Profiles Policies
+-- Helper function to get the current user's role without triggering infinite recursion
+CREATE OR REPLACE FUNCTION get_my_role()
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT role_id FROM profiles WHERE id = auth.uid() LIMIT 1;
+$$;
+
 CREATE POLICY "Users can read their own profile"
   ON profiles FOR SELECT
   USING (auth.uid() = id);
@@ -57,11 +66,7 @@ CREATE POLICY "Users can read their own profile"
 CREATE POLICY "Managers and HR can read all profiles"
   ON profiles FOR SELECT
   USING (
-    EXISTS (
-      SELECT 1 FROM profiles p 
-      WHERE p.id = auth.uid() 
-      AND p.role_id IN ('eng_mgr', 'chro')
-    )
+    get_my_role() IN ('eng_mgr', 'chro')
   );
 
 CREATE POLICY "Users can insert their own profile"
