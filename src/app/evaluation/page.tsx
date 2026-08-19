@@ -144,7 +144,7 @@ export default function EmployeeEvaluationForm() {
 
     try {
       const { data: profile, error } = await supabase
-        .from('profiles')
+        .from('hr_directory')
         .select('full_name, department, role_name, location')
         .eq('employee_id', formData.employeeId.trim())
         .single();
