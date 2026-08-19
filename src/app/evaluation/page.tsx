@@ -105,13 +105,13 @@ export default function EmployeeEvaluationForm() {
   useEffect(() => {
     const fetchMyProfile = async () => {
       if (!userId) return;
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('employee_id, full_name, department, role_name, location')
         .eq('id', userId)
         .single();
         
-      if (profile) {
+      if (profile && !error) {
         setFormData(prev => ({
           ...prev,
           employeeId: profile.employee_id || prev.employeeId,
@@ -121,6 +121,10 @@ export default function EmployeeEvaluationForm() {
           location: profile.location || prev.location
         }));
         setValidationSuccess(true);
+      } else {
+        console.error("fetchMyProfile error:", error);
+        setValidationSuccess(false);
+        setFetchErrorMsg(error ? `Failed to load your profile: ${error.message}` : "Profile not found in database.");
       }
     };
     fetchMyProfile();
