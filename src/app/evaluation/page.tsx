@@ -94,6 +94,30 @@ export default function EmployeeEvaluationForm() {
     }));
   };
 
+  useEffect(() => {
+    const fetchMyProfile = async () => {
+      if (!userId) return;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('employee_id, full_name, department, role_name, location')
+        .eq('id', userId)
+        .single();
+        
+      if (profile) {
+        setFormData(prev => ({
+          ...prev,
+          employeeId: profile.employee_id || prev.employeeId,
+          employeeName: profile.full_name || prev.employeeName,
+          department: profile.department || prev.department,
+          designation: profile.role_name || prev.designation,
+          location: profile.location || prev.location
+        }));
+        setValidationSuccess(true);
+      }
+    };
+    fetchMyProfile();
+  }, [userId, supabase]);
+
   const [isValidating, setIsValidating] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState<boolean | null>(null);
 
@@ -107,7 +131,7 @@ export default function EmployeeEvaluationForm() {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('full_name, department, role_name, location')
-        .ilike('employee_id', formData.employeeId)
+        .eq('employee_id', formData.employeeId.trim())
         .single();
 
       if (profile && !error) {
