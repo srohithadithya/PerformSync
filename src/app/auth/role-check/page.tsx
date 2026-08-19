@@ -13,12 +13,19 @@ export default function RoleCheckPage() {
   useEffect(() => {
     const checkUserAndAssignRole = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        
-        if (error) {
-          router.push(`/login?error=${encodeURIComponent(`Role Check Error: ${error.message}`)}`);
-          return;
+        // Use getSession first as it reads locally and avoids race conditions immediately after login
+        const { data: { session } } = await supabase.auth.getSession();
+        let user = session?.user;
+
+        if (!user) {
+          const { data: { user: fetchedUser }, error } = await supabase.auth.getUser();
+          if (error) {
+            router.push(`/login?error=${encodeURIComponent(`Role Check Error: ${error.message}`)}`);
+            return;
+          }
+          user = fetchedUser;
         }
+        
         if (!user || !user.email) {
           router.push(`/login?error=${encodeURIComponent("Role Check Error: No active session found. Please try logging in again.")}`);
           return;

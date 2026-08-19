@@ -16,9 +16,17 @@ export default function EmployeeEvaluationForm() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        let user = session?.user;
+
+        if (!user) {
+          const { data: { user: fetchedUser } } = await supabase.auth.getUser();
+          user = fetchedUser;
+        }
+        
         if (!user) {
           toast.error("Authentication error. Please log in again.");
+          router.push("/login");
           return;
         }
         setUserId(user.id);
@@ -121,11 +129,14 @@ export default function EmployeeEvaluationForm() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState<boolean | null>(null);
 
+  const [fetchErrorMsg, setFetchErrorMsg] = useState<string | null>(null);
+
   const validateAndFetch = async () => {
     if (!formData.employeeId) return;
     
     setIsValidating(true);
     setValidationSuccess(null);
+    setFetchErrorMsg(null);
 
     try {
       const { data: profile, error } = await supabase
@@ -145,10 +156,12 @@ export default function EmployeeEvaluationForm() {
         setValidationSuccess(true);
       } else {
         setValidationSuccess(false);
+        setFetchErrorMsg(error ? `DB Error: ${error.message} (Code: ${error.code})` : "No profile found for this Employee ID.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Auto-fetch error", err);
       setValidationSuccess(false);
+      setFetchErrorMsg(`Network Error: ${err.message}`);
     } finally {
       setIsValidating(false);
     }
@@ -356,7 +369,7 @@ export default function EmployeeEvaluationForm() {
             
             {validationSuccess === false && (
               <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
-                Warning: Employee ID not found in HR directory. Please enter details manually.
+                Warning: Employee ID not found. {fetchErrorMsg}
               </div>
             )}
             {validationSuccess === true && (
