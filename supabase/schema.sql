@@ -59,15 +59,11 @@ AS $$
   SELECT role_id FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$;
 
-CREATE POLICY "Users can read their own profile"
+CREATE POLICY "All authenticated users can read all profiles"
   ON profiles FOR SELECT
-  USING (auth.uid() = id);
+  USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Managers and HR can read all profiles"
-  ON profiles FOR SELECT
-  USING (
-    get_my_role() IN ('eng_mgr', 'chro')
-  );
+-- Managers and HR policy is redundant as all authenticated users can now read profiles
 
 CREATE POLICY "Users can insert their own profile"
   ON profiles FOR INSERT
