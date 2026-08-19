@@ -158,7 +158,24 @@ export async function POST(request: Request) {
     drawWrappedText(mgr.developmentRecommendations || 'No recommendations provided.', 500, 10);
     currentY -= 10;
 
-    drawText(`OVERALL RATING: ${mgr.overallRating || 'N/A'} / 5`, 14, true, rgb(0, 0, 0.8));
+    const { employeeAverage, managerAverage, aiCalibrationSummary } = data;
+
+    checkPageBreak(150);
+    page.drawText('Employee Self-Assessment Average:', { x: 50, y: currentY, size: 12, font: boldFont, color: rgb(0, 0, 0) });
+    page.drawText(`${employeeAverage || 'N/A'} / 5.0`, { x: 260, y: currentY, size: 12, font: font });
+    currentY -= 20;
+
+    page.drawText('Official Manager Score:', { x: 50, y: currentY, size: 12, font: boldFont, color: rgb(0, 0, 0.5) });
+    page.drawText(`${managerAverage || 'N/A'} / 5.0`, { x: 260, y: currentY, size: 12, font: font, color: rgb(0, 0, 0.5) });
+    currentY -= 30;
+
+    if (aiCalibrationSummary) {
+      page.drawText('AI Calibration Summary:', { x: 50, y: currentY, size: 12, font: boldFont, color: rgb(0, 0, 0) });
+      currentY -= 15;
+      
+      drawWrappedText(aiCalibrationSummary, 480, 10);
+      currentY -= 10;
+    }
     currentY -= 30;
 
     // --- Declarations & Signatures ---

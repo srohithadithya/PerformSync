@@ -118,10 +118,32 @@ function ManagerReviewContent() {
     setIsSubmitting(true);
     toast.loading("Generating PDF and finalizing review...", { id: "review-submit" });
     try {
+      let empTotal = 0;
+      let empCount = 0;
+
+      evaluationTemplate.forEach(section => {
+        if (section.type === "rating-grid" && section.items) {
+          const empSection = employeeData[section.id];
+          if (empSection) {
+            section.items.forEach(item => {
+              if (empSection[item.id] && empSection[item.id].rating) {
+                empTotal += Number(empSection[item.id].rating);
+                empCount++;
+              }
+            });
+          }
+        }
+      });
+
+      const employeeAverage = empCount > 0 ? (empTotal / empCount).toFixed(1) : "0.0";
+
       const finalPayload = {
         ...employeeData,
         managerReview: managerData,
-        aiSummary: aiSummary
+        aiSummary: aiSummary,
+        employeeAverage,
+        managerAverage: managerData.overallRating,
+        aiCalibrationSummary: aiSummary
       };
 
       const res = await fetch('/api/generate-pdf', {
@@ -148,6 +170,7 @@ function ManagerReviewContent() {
               manager_id: managerId,
               manager_feedback: JSON.stringify(managerData),
               manager_rating: managerData.overallRating,
+              employee_rating: employeeAverage,
               manager_signature: signatureMode === "type" ? managerData.managerSignature : managerData.managerSignatureImage,
               manager_signed_at: new Date(managerData.managerSignatureDate).toISOString(),
               ai_summary: aiSummary

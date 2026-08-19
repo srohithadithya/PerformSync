@@ -54,7 +54,7 @@ export default function RoleCheckPage() {
           }
 
           let location = 'San Francisco, CA';
-          let employee_id = 'EMP' + Math.floor(Math.random() * 9000 + 1000).toString();
+          let employee_id = user.user_metadata?.employee_id || 'EMP' + Math.floor(Math.random() * 9000 + 1000).toString();
           let full_name = email.split('@')[0].split('.').map((n: string) => n.charAt(0).toUpperCase() + n.slice(1)).join(' ');
 
           const { data: newProfile, error: insertError } = await supabase

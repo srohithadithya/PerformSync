@@ -105,3 +105,10 @@ CREATE POLICY "Managers can update evaluations in their department"
       )
     )
   );
+CREATE OR REPLACE FUNCTION get_email_by_emp_id(p_employee_id text)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT email FROM profiles WHERE employee_id = p_employee_id LIMIT 1;
+$$;
