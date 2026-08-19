@@ -15,7 +15,7 @@ export default function RoleCheckPage() {
       try {
         // Use getSession first as it reads locally and avoids race conditions immediately after login
         const { data: { session } } = await supabase.auth.getSession();
-        let user = session?.user;
+        let user: any = session?.user;
 
         if (!user) {
           const { data: { user: fetchedUser }, error } = await supabase.auth.getUser();

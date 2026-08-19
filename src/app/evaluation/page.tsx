@@ -17,7 +17,7 @@ export default function EmployeeEvaluationForm() {
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        let user = session?.user;
+        let user: any = session?.user;
 
         if (!user) {
           const { data: { user: fetchedUser } } = await supabase.auth.getUser();
