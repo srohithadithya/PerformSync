@@ -20,6 +20,7 @@ PerformSync digitizes traditional PDF-based performance reviews into a dynamic w
 
 ### 📝 AI-Powered & Dynamic Evaluations
 - **Dynamic Configuration Engine:** The entire evaluation structure (KPIs, Text Areas, Rating Grids) is driven by a central `evaluation-template.ts` file, making it infinitely scalable without touching React code.
+- **Separated Evaluation Scoring:** Captures and calculates the Employee's Self-Assessment Average and the Official Manager Score independently, ensuring transparent calibration side-by-side.
 - **NVIDIA NIM Integration:** Utilizes Meta Llama 3 8B Instruct via NVIDIA NIM to automatically polish employee feedback and summarize long-form text.
 
 ### 🖋️ Digital Signatures & Dynamic PDF Generation

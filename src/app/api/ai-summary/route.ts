@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       baseURL: 'https://integrate.api.nvidia.com/v1',
     });
 
-    const prompt = `You are an HR Assistant. Please provide a concise, 3-sentence summary of the following employee self-evaluation data highlighting their top achievements and areas for improvement: ${dataString}`;
+    const prompt = `You are an HR Assistant. Please provide a concise, 3-sentence summary of the following employee self-evaluation and manager feedback, highlighting their top achievements, areas for improvement, and any calibration gaps between self and manager ratings: ${dataString}`;
 
     const completion = await openai.chat.completions.create({
       model: "meta/llama-3.1-8b-instruct",

@@ -91,7 +91,11 @@ function ManagerReviewContent() {
     try {
       const res = await fetch("/api/ai-summary", {
         method: "POST",
-        body: JSON.stringify({ name: employeeData?.employeeName || "Employee" }),
+        body: JSON.stringify({ 
+          name: employeeData?.employeeName || "Employee",
+          employeeData: employeeData,
+          managerData: managerData 
+        }),
       });
       const data = await res.json();
       setAiSummary(data.summary);
