@@ -66,7 +66,13 @@ function LoginFormComponent() {
           password: cleanMpin,
         });
         
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            throw new Error("Invalid credentials. If this is a new account, you MUST click 'First time?' to register first. If you just registered, you MUST turn off 'Enable Email Confirmations' in your Supabase Dashboard > Auth > Providers > Email.");
+          }
+          throw error;
+        }
+        
         router.push('/auth/role-check');
       }
     } catch (err: any) {
