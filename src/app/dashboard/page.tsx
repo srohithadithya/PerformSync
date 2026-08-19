@@ -82,6 +82,9 @@ export default function HRDashboard() {
               employeeSignatureDate: ev.employee_signed_at,
               managerReview: parsedManagerFeedback,
               aiSummary: ev.ai_summary,
+              employeeAverage: ev.employee_rating,
+              managerAverage: ev.manager_rating,
+              aiCalibrationSummary: ev.ai_summary,
               dbId: ev.id // Store the actual DB UUID for the review page to use
             }
           };

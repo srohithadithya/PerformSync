@@ -35,6 +35,7 @@ CREATE TABLE evaluations (
   manager_id uuid REFERENCES auth.users(id),
   manager_feedback text,
   manager_rating text,
+  employee_rating text,
   manager_signature text,
   manager_signed_at timestamp with time zone,
   ai_summary text,
